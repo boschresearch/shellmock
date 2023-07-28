@@ -85,7 +85,7 @@ Please have a look at the [full command reference](./docs/usage.md) for all
 details.
 
 [shellmock-tests]: ./tests/main.bats "shellmock tests"
-[releases]: https://github.boschdevcloud.com/bios-bcai/shellmock/releases "releases"
+[releases]: https://github.com/boschresearch/shellmock/releases "releases"
 [latest-release]: https://github.com/boschresearch/shellmock/releases/latest "latest release"
 
 ### Dependencies
