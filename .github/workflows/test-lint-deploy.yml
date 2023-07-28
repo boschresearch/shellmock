@@ -39,8 +39,8 @@ jobs:
         env: 
           DEBIAN_FRONTEND: noninteractive
         run: |
-          apt-get update -qq
-          apt-get install -qqy --no-install-recommends \
+          sudo apt-get update -qq
+          sudo apt-get install -qqy --no-install-recommends \
             ca-certificates coreutils curl git jq kcov make shellcheck
 
       - name: Install bats
@@ -59,10 +59,11 @@ jobs:
           SHA256: 0264c424278b18e22453fe523ec01a19805ce3b8ebf18eaf3aadc1edc23f42e3
           URL: https://github.com/mvdan/sh/releases/download
         run: |
-          curl -o /usr/local/bin/shfmt --location \
+          curl -o shfmt --location \
             "${URL}/v${VERSION}/shfmt_v${VERSION}_linux_amd64"
-          echo "${SHA256} /usr/local/bin/shfmt" | sha256sum -c
-          chmod +x /usr/local/bin/shfmt
+          echo "${SHA256} shfmt" | sha256sum -c
+          chmod +x shfmt
+          sudo mv shfmt /usr/local/bin/shfmt
 
       - uses: actions/checkout@v3
         with:
