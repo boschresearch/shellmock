@@ -19,13 +19,11 @@
 # shellmock <!-- omit in toc -->
 
 - [Quickstart Guide](#quickstart-guide)
+  - [Dependencies](#dependencies)
 - [Further examples](#further-examples)
 - [Feedback](#feedback)
 - [About](#about)
   - [Maintainers](#maintainers)
-  - [Contributors](#contributors)
-  - [3rd Party Licenses](#3rd-party-licenses)
-  - [Used Encryption](#used-encryption)
   - [License](#license)
 
 This is the `shellmock` project, a mocking framework for shell scripts.
