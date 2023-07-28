@@ -46,7 +46,7 @@ jobs:
       - name: Install bats
         run: |
           git clone https://github.com/bats-core/bats-core.git
-          ./bats-core/install.sh /usr/local
+          sudo ./bats-core/install.sh /usr/local
           rm -rf bats-core
 
       - name: Disable git config safety checks for this repository
