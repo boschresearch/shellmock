@@ -39,7 +39,7 @@ and `golang/mock`.
 ## Quickstart Guide
 
 If you simply want to get this show in the road, just head over to the
-[releases](./releases), download the [latest release](./releases/latest).
+[releases], download the [latest release][latest-release].
 Then, you can write your [bats-core]-based tests.
 Just make sure to use `load shellmock` in your `setup` function.
 You can also have a look at [this example](./docs/example.md) or
@@ -85,6 +85,8 @@ Please have a look at the [full command reference](./docs/usage.md) for all
 details.
 
 [shellmock-tests]: ./tests/main.bats "shellmock tests"
+[releases]: https://github.boschdevcloud.com/bios-bcai/shellmock/releases "releases"
+[latest-release]: https://github.com/boschresearch/shellmock/releases/latest "latest release"
 
 ### Dependencies
 
