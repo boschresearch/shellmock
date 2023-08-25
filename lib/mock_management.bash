@@ -21,16 +21,41 @@
 __shellmock__new() {
   __shellmock_internal_pathcheck
 
-  local exe="$1"
+  local cmd="$1"
 
-  if [[ $(type -t "${exe}") == function ]]; then
+  if [[ $(type -t "${cmd}") == function ]]; then
     # We are mocking a function, unset it or it will take precedence over our
     # injected executable.
-    unset -f "${exe}"
+    unset -f "${cmd}"
   fi
 
-  __shellmock_write_mock_exe > "${__SHELLMOCK_MOCKBIN}/${exe}"
-  chmod +x "${__SHELLMOCK_MOCKBIN}/${exe}"
+  __shellmock_write_mock_exe > "${__SHELLMOCK_MOCKBIN}/${cmd}"
+  chmod +x "${__SHELLMOCK_MOCKBIN}/${cmd}"
+}
+
+__shellmock_assert_no_duplicate_argspecs() {
+  local args=("$@")
+
+  declare -A arg_idx_count=()
+  declare -A duplicate_arg_indices=()
+  local count
+  for arg in "${args[@]}"; do
+    idx=${arg%%:*}
+    idx=${idx#regex-}
+    if [[ ${idx} == any ]]; then
+      continue
+    fi
+    count=${arg_idx_count["${idx}"]-0}
+    arg_idx_count["${idx}"]=$((count + 1))
+    if [[ ${count} -gt 0 ]]; then
+      duplicate_arg_indices["${idx}"]=1
+    fi
+  done
+  if [[ ${#duplicate_arg_indices[@]} -gt 0 ]]; then
+    echo >&2 "Multiple arguments specified for the following indices," \
+      "cannot continue: ${!duplicate_arg_indices[*]}"
+    return 1
+  fi
 }
 
 # Configure an already created mock. Provide the mock name, the desired exit
@@ -40,14 +65,17 @@ __shellmock__config() {
 
   # Fake output is read from stdin.
   local cmd="$1"
+  local cmd_b32
+  cmd_b32=$(base32 -w0 <<< "${cmd}" | tr "=" "_")
   local rc="$2"
   shift 2
 
   # Validate input format.
   local args=()
   local has_err=0
+  local regex='^(regex-[0-9][0-9]*|regex-any|i|[0-9][0-9]*|any):'
   for arg in "$@"; do
-    if ! grep -qE '^(regex-[0-9][0-9]*|regex-any|i|[0-9][0-9]*|any):' <<< "${arg}"; then
+    if ! grep -qE "${regex}" <<< "${arg}"; then
       echo >&2 "Incorrect format of argspec: ${arg}"
       has_err=1
     fi
@@ -86,32 +114,36 @@ __shellmock__config() {
   done
   args=("${updated_args[@]}")
 
-  # Handle arg specs.
-  local env_var_val
-  env_var_val=$(for arg in "${args[@]}"; do
-    echo "${arg}"
-  done | base64)
+  if ! __shellmock_assert_no_duplicate_argspecs "${args[@]}"; then
+    return 1
+  fi
 
+  # Handle fake exit code. Use the exit code as a proxy to determine which count
+  # to use next because all mock configurations have to set the exit code but
+  # not all of them have to provide arg specs or output.
   local count=0
-  local env_var_name="MOCK_ARGSPEC_BASE64_${cmd}_${count}"
+  local env_var_val="${rc}"
+  local env_var_name="MOCK_RC_${cmd_b32}_${count}"
   while [[ -n ${!env_var_name-} ]]; do
     count=$((count + 1))
-    env_var_name="MOCK_ARGSPEC_BASE64_${cmd}_${count}"
+    env_var_name="MOCK_RC_${cmd_b32}_${count}"
   done
+  declare -gx "${env_var_name}=${env_var_val}"
+
+  # Handle arg specs.
+  env_var_val=$(for arg in "${args[@]}"; do
+    echo "${arg}"
+  done | base64 -w0)
+  env_var_name="MOCK_ARGSPEC_BASE64_${cmd_b32}_${count}"
   declare -gx "${env_var_name}=${env_var_val}"
 
   # Handle fake output. Read from stdin but only if stdin is not a terminal.
   if ! [[ -t 0 ]]; then
-    env_var_val="$(base64)"
+    env_var_val="$(base64 -w0)"
   else
     env_var_val=
   fi
-  env_var_name="MOCK_OUTPUT_BASE64_${cmd}_${count}"
-  declare -gx "${env_var_name}=${env_var_val}"
-
-  # Handle fake exit code.
-  env_var_val="${rc}"
-  env_var_name="MOCK_RC_${cmd}_${count}"
+  env_var_name="MOCK_OUTPUT_BASE64_${cmd_b32}_${count}"
   declare -gx "${env_var_name}=${env_var_val}"
 }
 
@@ -121,6 +153,8 @@ __shellmock__assert() {
 
   local assert_type="$1"
   local cmd="$2"
+  local cmd_b32
+  cmd_b32=$(base32 -w0 <<< "${cmd}" | tr "=" "_")
 
   # Ensure we only assert on existing mocks.
   if ! [[ -x "${__SHELLMOCK_MOCKBIN}/${cmd}" ]]; then
@@ -134,7 +168,7 @@ __shellmock__assert() {
   # happens. However, there are cases where that is not desired, which is why
   # this assertion is helpful.
   only-expected-calls)
-    if [[ ! -d "${__SHELLMOCK_OUTPUT}/${cmd}" ]]; then
+    if [[ ! -d "${__SHELLMOCK_OUTPUT}/${cmd_b32}" ]]; then
       # If this directory is missing, the mock has never been called. That is
       # fine for this assert type because it means we did not get any unexpected
       # calls.
@@ -148,7 +182,7 @@ __shellmock__assert() {
         has_err=1
       fi
     done < <(
-      find "${__SHELLMOCK_OUTPUT}/${cmd}" -mindepth 2 -type f -name stderr
+      find "${__SHELLMOCK_OUTPUT}/${cmd_b32}" -mindepth 2 -type f -name stderr
     )
     if [[ ${has_err} -ne 0 ]]; then
       echo >&2 "SHELLMOCK: got at least one unexpected call for mock ${cmd}."
@@ -162,14 +196,15 @@ __shellmock__assert() {
   call-correspondence)
     declare -a actual_argspecs
     mapfile -t actual_argspecs < <(
-      [[ -d "${__SHELLMOCK_OUTPUT}/${cmd}" ]] \
-        && find "${__SHELLMOCK_OUTPUT}/${cmd}" -mindepth 2 -type f \
+      [[ -d "${__SHELLMOCK_OUTPUT}/${cmd_b32}" ]] \
+        && find "${__SHELLMOCK_OUTPUT}/${cmd_b32}" -mindepth 2 -type f \
           -name argspec -print0 | xargs -0 cat | sort -u
     )
 
     declare -a expected_argspecs
     mapfile -t expected_argspecs < <(
-      env | sed 's/=.*$//' | grep -x "MOCK_ARGSPEC_BASE64_${cmd}_[0-9][0-9]*" \
+      env | sed 's/=.*$//' \
+        | grep -x "MOCK_ARGSPEC_BASE64_${cmd_b32}_[0-9][0-9]*" \
         | sort -u
     )
 
@@ -177,11 +212,13 @@ __shellmock__assert() {
     for argspec in "${expected_argspecs[@]}"; do
       if ! [[ " ${actual_argspecs[*]} " == *"${argspec}"* ]]; then
         has_err=1
-        echo >&2 "SHELLMOCK: cannot find call for argspec: $(base64 --decode <<< "${!argspec}")"
+        echo >&2 "SHELLMOCK: cannot find call for mock ${cmd} and argspec:" \
+          "$(base64 --decode <<< "${!argspec}")"
       fi
     done
     if [[ ${has_err} -ne 0 ]]; then
-      echo >&2 "SHELLMOCK: at least one expected call was not issued."
+      echo >&2 "SHELLMOCK: at least one expected call for mock ${cmd}" \
+        "was not issued."
       return 1
     fi
     ;;
@@ -192,6 +229,124 @@ __shellmock__assert() {
     ;;
   *)
     echo >&2 "Unknown assertion type: ${assert_type}"
+    return 1
     ;;
   esac
+}
+
+# Quote special JSON characters backslash, forward slash, and double quotes.
+__shellmock_jsonify_string() {
+  local val=$1
+  # shellcheck disable=SC1003
+  val=${val//'\'/'\\'} # Escape all backslashes with a backslash.
+  val=${val//'/'/'\/'} # Escape all forward slashes with a backslash.
+  val=${val//'"'/'\"'} # Escape all double quotes with a backslash.
+  echo "${val}"
+}
+
+# Turn a bash array into a JSON array with proper quoting and indentation.
+__shellmock_jsonify_array() {
+  local indent="${1}"
+  shift
+  local args=("$@")
+  # Assume first line will already be indented properly by caller.
+  echo "["
+  for idx in "${!args[@]}"; do
+    if [[ $((idx + 1)) -ne ${#args[@]} ]]; then
+      local sep=,
+    else
+      local sep=
+    fi
+    local arg="${args["${idx}"]}"
+    echo "${indent}  \"$(__shellmock_jsonify_string "${arg}")\"${sep}"
+  done
+  echo "${indent}]"
+}
+
+__shellmock__calls() {
+  __shellmock_internal_pathcheck
+
+  local cmd="$1"
+  local format="${2-"--plain"}"
+  local cmd_b32
+  cmd_b32=$(base32 -w0 <<< "${cmd}" | tr "=" "_")
+  local cmd_quoted
+  cmd_quoted="$(printf "%q" "${cmd}")"
+
+  # Ensure we only retrieve call logs for existing mocks and ones that have been
+  # called at least once.
+  if ! [[ -d "${__SHELLMOCK_OUTPUT}/${cmd_b32}" ]]; then
+    echo >&2 "Cannot retrieve call logs for executable '${cmd}'," \
+      "mock unknown or it has never been called."
+    return 2
+  fi
+
+  local call_ids
+  readarray -d $'\n' -t call_ids < <(
+    find "${__SHELLMOCK_OUTPUT}/${cmd_b32}" -mindepth 1 -maxdepth 1 -type d \
+      | sort -n
+  )
+
+  for call_idx in "${!call_ids[@]}"; do
+    local call_id="${call_ids[${call_idx}]}"
+    local call_num=$((call_idx + 1))
+    local shell_quoted=()
+
+    # Extract arguments and stdin. Shell-quote everything for the suggestion.
+    local args=()
+    readarray -d $'\n' -t args < "${call_id}/args"
+    local idx
+    for idx in "${!args[@]}"; do
+      local arg="${args[${idx}]}"
+      shell_quoted+=("$(printf "%q" "$((idx + 1)):${arg}")")
+    done
+    local stdin=
+    if [[ -s "${call_id}/stdin" ]]; then
+      stdin="$(cat "${call_id}/stdin")"
+      shell_quoted+=("<<<" "$(printf "%q" "${stdin}")")
+    fi
+    local suggestion="shellmock config ${cmd_quoted} 0 ${shell_quoted[*]}"
+
+    case ${format} in
+    --plain)
+      # Split records using one empty line.
+      if [[ ${call_num} -ne 1 ]]; then
+        echo
+      fi
+      cat << EOF
+name:       ${cmd}
+id:         ${call_num}
+args:       ${args[*]}
+stdin:      ${stdin}
+suggestion: ${suggestion}
+EOF
+      ;;
+    --json)
+      # JSON-quote all strings. Use 2 spaces as indentation.
+      if [[ ${call_num} -eq 1 ]]; then
+        echo $'[\n  {'
+      fi
+      cat << EOF
+    "name": "$(__shellmock_jsonify_string "${cmd}")",
+    "id": "$(__shellmock_jsonify_string "${call_num}")",
+    "args": $(__shellmock_jsonify_array "    " "${args[@]}"),
+    "stdin": "$(__shellmock_jsonify_string "${stdin}")",
+    "suggestion": "$(__shellmock_jsonify_string "${suggestion}")"
+EOF
+      if [[ ${call_num} -ne ${#call_ids[@]} ]]; then
+        echo $'  },\n  {'
+      else
+        echo $'  }\n]'
+      fi
+      ;;
+    *)
+      echo >&2 "unknown call log format '${format}'"
+      return 2
+      ;;
+    esac
+  done
+  # Always exit with error because this function is used for mock development.
+  # That way, there is no chance that tests using it succeed (unless the exit
+  # code is deliberately ignored).
+  return 1
 }

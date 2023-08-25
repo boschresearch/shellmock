@@ -69,6 +69,8 @@ coverage: test
 	  END{ \
 	    if(cov/tot_cov < min_cov/100){ \
 	      printf("Coverage too low: %.2f < %.2f\n", cov/tot_cov, min_cov/100); exit 1 \
+	    } else { \
+	      printf("Coverage is OK at %d%%.\n", 100*cov/tot_cov); \
 	    } \
 	  }' < <(jq < $$(ls -d1 .coverage/bats.*/coverage.json) | sed 's/,$$//')
 

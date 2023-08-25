@@ -53,10 +53,12 @@ and what each parameter does.
 . shellmock.bash
 # Instantiate a new mock for the curl command.
 shellmock new curl
-# Configure the mock.
-shellmock config curl 0 1:http://www.google.com
-# Calling the curl command. The mock will be called instead.
-curl http://www.google.com
+# Configure the mock, expecting the 2nd argument to be a specific URL.
+shellmock config curl 0 2:http://www.google.com
+# Calling the curl command in verbose mode. The mock will be called instead.
+curl -v http://www.google.com
+# Check that the expected calls and only those calls have happened.
+shellmock assert expectations curl
 ```
 
 The `shellmock` command:
@@ -68,16 +70,28 @@ The `shellmock` command:
   sure that the mock it controls is used preferentially to the actual
   `curl` executable on your system.
 
-- `shellmock config curl 0 1:http://www.google.com`
+- `shellmock config curl 0 2:http://www.google.com`
 
   Configure the mock.
   Here, you specify the arguments you expect your command
   to be called with, as well as the mock's exit status code.
 
   - `0`: the exit status code of the mock (`0` means "success")
-  - `1:http://www.google.com`: State that the first argument of the command
+  - `2:http://www.google.com`: State that the second argument of the command
     is expected to be the literal string `http://www.google.com`.
     Note that counting arguments starts at 1.
+    Any other argument could have any value and the mock would accept it.
+
+- `shellmock assert expectations curl`
+
+  Assert that the configured call has been issued to the mock.
+  This command will have a non-zero (failure) exit code if
+
+  - the mock has been called with arguments that have not been declared via a
+    previous call to `shellmock config` (i.e. an unexpected call), or
+  - the mock has not been called with at least one set of arguments specified
+    via a previous call to `shellmock config` (i.e. an expected call is
+    missing).
 
 Please have a look at the [full command reference](./docs/usage.md) for all
 details.
@@ -88,9 +102,10 @@ details.
 
 ### Dependencies
 
-The following tools are needed to use `shelmock`:
+The following tools are needed to use `shellmock`:
 
 - `awk`
+- `base32`
 - `base64`
 - `bash`
 - `cat`
@@ -99,6 +114,7 @@ The following tools are needed to use `shelmock`:
 - `grep`
 - `sed`
 - `sort`
+- `tr`
 - `xargs`
 
 On Debian-based systems, they can be installed via:

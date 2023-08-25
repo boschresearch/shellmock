@@ -45,6 +45,10 @@ else
   fi
   # Check out the branch. It is guaranteed to exist.
   git checkout "${branch_name}"
+  # List all existing branches at the end, informing the user which branches
+  # exist at the moment.
+  echo "Current branches:"
+  git branch -l
 fi
 ```
 
@@ -83,11 +87,16 @@ setup() {
   shellmock new git
   # Configure the mock to have an exit code of 0 if it is called with the
   # rev-parse command. This simulates git reporting that the branch exists. The
-  # name can be at any position.
-  shellmock config git 0 1:rev-parse any:some_branch
+  # name must be at position 4. The values at positions 2 and 3 do not matter.
+  shellmock config git 0 1:rev-parse 4:some_branch
   # Configure the mock to have an exit code of 0 if it is called with the
-  # checkout command and a specific branch name.
-  shellmock config git 0 1:checkout 2:some_branch
+  # checkout command and a specific branch name. The branch name can be at any
+  # position.
+  shellmock config git 0 1:checkout any:some_branch
+  # Configure the mock to have an exit code of 0 if it is called with the
+  # branch command and the -l argument. The mock will write "* some branch" to
+  # stdout.
+  shellmock config git 0 1:branch 2:-l <<< "* some_branch"
   # Now run your script via the "run" built-in. Here "${script}" contains the
   # path to your executable script.
   run "${script}" some_branch
@@ -110,6 +119,10 @@ setup() {
   # branch command and a specific branch name. We match the branch name, which
   # is argument 2, with a bash regular expression.
   shellmock config git 0 1:branch regex-2:"^feature/.*$"
+  # Configure the mock to have an exit code of 0 if it is called with the
+  # branch command and the -l argument. The mock will write "* some branch" to
+  # stdout. The first matching config will be used.
+  shellmock config git 0 1:branch 2:-l <<< "* some_branch"
   # The checkout command should also succeed for any feature branch.
   shellmock config git 0 1:checkout regex-2:"^feature/.*$"
   run "${script}" "feature/some-feature"
@@ -132,7 +145,7 @@ The above example calls the script itself via the `run` built-in.
 For more complex scripts, you want to be able to test parts of it instead of the
 whole script at once.
 To do so, you need to use shell functions throughout and source the script in
-your tests (also see [this guide][testability] and [this guide][testing]).
+your tests.
 Doing so will allow you to test individual functions.
 You can also mock functions called by your own functions.
 Please have a look at [shellmock's own tests][shellmock-tests] for what is
@@ -140,6 +153,4 @@ possible.
 
 [bats-core]: https://bats-core.readthedocs.io/ "bats core website"
 [bats-guide]: https://bats-core.readthedocs.io/en/stable/tutorial.html "bats guide"
-[shellmock-tests]: https://github.boschdevcloud.com/bios-bcai/shellmock/blob/develop/tests/main.bats "shellmock tests"
-[testability]: https://github.boschdevcloud.com/bios-bcai/shell-scripting-kickstarter/blob/main/testability.md "testability"
-[testing]: https://github.boschdevcloud.com/bios-bcai/shell-scripting-kickstarter/blob/main/testing.md "testing"
+[shellmock-tests]: ../tests/main.bats "shellmock tests"

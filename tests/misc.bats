@@ -73,10 +73,38 @@ setup() {
   shellmock help
 }
 
+@test "mocking executables with unusual names" {
+  for exe in happy😀face exe-with-dash chinese龙dragon "exe with spaces"; do
+    (
+      # Make sure the test fails as soon as one command errors out, even though
+      # we are in a subshell.
+      set -euo pipefail
+      shellmock new "${exe}"
+      # Define the mock to return with success.
+      shellmock config "${exe}" 0 1:arg
+      # Ensure assertions fail without the configured call having happened.
+      run ! shellmock assert expectations "${exe}"
+      # Call the mock.
+      "${exe}" arg
+      # Make sure assertions work for such mocks.
+      shellmock assert expectations "${exe}"
+    )
+  done
+}
+
 @test "changing PATH after init issues warning" {
   export PATH="/I/do/not/exist:${PATH}"
   local stderr
   run -0 --separate-stderr shellmock new my_exe
   local regex="^WARNING: value for PATH has changed since loading shellmock"
   [[ ${stderr} =~ ${regex} ]]
+}
+
+@test "catch-all mocks are not overwritten" {
+  shellmock new git
+  shellmock config git 0 <<< "catchall"
+  shellmock config git 0 1:branch <<< "branch"
+
+  run git branch
+  [[ ${output} == catchall ]]
 }

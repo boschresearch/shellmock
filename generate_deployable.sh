@@ -30,7 +30,7 @@ deployable() {
 
 # This file is auto-generated. It is the main deployable of shellmock. To make
 # contributions to shellmock, please visit the repository under:
-# https://github.boschdevcloud.com/bios-bcai/shellmock/ 
+# https://github.com/boschresearch/shellmock
 
 EOF
   # Output all bats helper files containing function definitions.

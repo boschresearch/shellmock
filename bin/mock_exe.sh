@@ -37,18 +37,18 @@ env_var_check() {
 }
 
 get_and_ensure_outdir() {
-  local cmd="$1"
+  local cmd_b32="$1"
   # Ensure no two calls overwrite each other in a thread-safe way.
   local count=0
-  local outdir="${__SHELLMOCK_OUTPUT}/${cmd}/${count}"
+  local outdir="${__SHELLMOCK_OUTPUT}/${cmd_b32}/${count}"
   while ! (
     # Increment the counter until we find one that has not been used before.
     flock -n 9 || exit 1
     [[ -d ${outdir} ]] && exit 1
     mkdir -p "${outdir}"
-  ) 9> "${__SHELLMOCK_OUTPUT}/lockfile_${cmd}_${count}"; do
+  ) 9> "${__SHELLMOCK_OUTPUT}/lockfile_${cmd_b32}_${count}"; do
     count=$((count + 1))
-    outdir="${__SHELLMOCK_OUTPUT}/${cmd}/${count}"
+    outdir="${__SHELLMOCK_OUTPUT}/${cmd_b32}/${count}"
   done
   echo "${outdir}"
 }
@@ -155,6 +155,9 @@ _kill_parent() {
 find_matching_argspec() {
   # Find arg specs for this command and determine whether a specification
   # matches.
+  local cmd_b32="${1}"
+  shift
+
   local env_var
   while read -r env_var; do
 
@@ -165,7 +168,7 @@ find_matching_argspec() {
     fi
   done < <(
     env | sed 's/=.*$//' \
-      | grep -x "MOCK_ARGSPEC_BASE64_${cmd}_[0-9][0-9]*" | sort -u
+      | grep -x "MOCK_ARGSPEC_BASE64_${cmd_b32}_[0-9][0-9]*" | sort -u
   )
 
   errecho "SHELLMOCK: unexpected call to '$0 $*'"
@@ -199,10 +202,10 @@ main() {
   env_var_check
   # Determine our name. This assumes that the first value in argv is the name of
   # the command. This is almost always so.
-  local cmd
-  cmd="$(basename "$0")"
+  local cmd_b32
+  cmd_b32="$(basename "$0" | base32 -w0 | tr "=" "_")"
   local outdir
-  outdir="$(get_and_ensure_outdir "${cmd}")"
+  outdir="$(get_and_ensure_outdir "${cmd_b32}")"
   declare -g STDERR="${outdir}/stderr"
   # Stdin is consumed in the function output_args_and_stdin.
   output_args_and_stdin "${outdir}" "$@"
@@ -210,7 +213,7 @@ main() {
   # associated information to stdout and exit with the associated exit code. If
   # it cannot be found, either exit with an error or kill the parent process.
   local cmd_spec
-  cmd_spec="$(find_matching_argspec "$@")"
+  cmd_spec="$(find_matching_argspec "${cmd_b32}" "$@")"
   provide_output "${cmd_spec}"
   return_with_code "${cmd_spec}"
 }

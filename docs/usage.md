@@ -2,13 +2,13 @@
   Copyright (c) 2022 - for information on the respective copyright owner
   see the NOTICE file or the repository
   https://github.com/boschresearch/shellmock
-  
+
   Licensed under the Apache License, Version 2.0 (the "License"); you may not
   use this file except in compliance with the License. You may obtain a copy of
   the License at
-  
+
     http://www.apache.org/licenses/LICENSE-2.0
-  
+
   Unless required by applicable law or agreed to in writing, software
   distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
   WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -49,6 +49,7 @@ It is implemented as a shell function with the following sub-commands:
 - `config`: Configure a previously-created mock by defining expectations.
 - `assert`: Assert based on previously-configured expectations.
 - `global-config`: Configure global behaviour of Shellmock itself.
+- `calls`: Log past calls to mocks and suggest mock configs to reproduce.
 - `help`: Provide a help text.
 
 <!-- shellmock-helptext-end -->
@@ -87,6 +88,9 @@ Syntax: `shellmock config <name> <exit_code> [1:<argspec> [...]]`
 
 The `config` command defines expectations for calls to your mocked executable.
 You need to define expectations before you can make assertions on your mock.
+You can add multiple configurations for the same mock by calling the `config`
+command multiple times.
+When called, the mock will use the first configuration that matches.
 
 <!-- shellmock-helptext-end -->
 
@@ -104,20 +108,18 @@ Everything read from standard input will be echoed by the mock to its standard
 output verbatim.
 There is no way to have the mock write something to standard error.
 
-#### Example
+** Example**: A call to `git branch` that
 
-This example simulates a call to `git branch` that:
-
-- returns with exit code `0`
-- expects to be called with the single argument `branch`
-- and will output `* main` to stdout
+- returns with exit code `0`, indicating success,
+- expects to be called with `branch` as first argument, and
+- will output `* main` to stdout.
 
 ```bash
 shellmock config git 0 1:branch <<< "* main"
 ```
 
 **Note:** The example shows one possible way to define the output of the mock.
-In the example it uses a _here string_ to define the input to shellmock.
+The example uses a _here string_ to define the input to shellmock.
 There are different ways to write to standard input, which even depend on the
 used shell.
 Here strings are known to work for `bash` and `zsh`, for example.
@@ -127,7 +129,7 @@ Here strings are known to work for `bash` and `zsh`, for example.
 An argspec defines expectations for arguments.
 Only calls to the mock whose arguments match all given expectations will have
 the given exit code and stdout.
-Any call to a mock that has at least one argument not matching an argspec will
+Any call to a mock that has at least one argument not matching any argspec will
 be considered an error (also see [killparent](#killparent)).
 
 Note that matches only happen for given argspecs.
@@ -136,79 +138,195 @@ can be there.
 For example, the line `shellmock config git 0` will cause _any_ invocation of
 the `git` mock to have a zero exit code, _irrespective of any arguments_ because
 no argspecs were given.
+Furthermore, you must not specify multiple argspecs for the same index.
+For example, the line `shellmock config git 0 1:branch 1:checkout` would never
+match any call and is thus rejected.
 
 Argspec sets as defined via `config` are matched in order of definition.
 The first one found that matches the given arguments will be used by the mock
 executable.
 
+** Example**: Catch-all mock configuration
+
+```bash
+shellmock new git
+shellmock config git 0 <<< "catchall"
+shellmock config git 0 1:branch <<< "branch"
+
+# Executing git branch.
+output=$(git branch)
+# Output is "catchall".
+if [[ ${output} != catchall ]]; then
+  echo >&2 "output not as expected: ${output}"
+  exit 1
+fi
+```
+
 #### argspec Definitions
 
-There are two _kinds_ of argspecs: exact string matches and regex-based string
-matches.
+There are three _types_ of argspecs: two position-dependent ones (numeric and
+incremental) and one position-independent (flexible) one.
+Position-dependent types should be preferred whenever possible.
+
+There are also two _kinds_ of argspecs: exact string matches and regex-based
+string matches.
 Exact string matches should be preferred whenever possible.
 
-There are also two _types_ of argspecs: position-dependent ones and
-position-independent ones.
-Position-dependent argspecs should be preferred whenever possible.
+The _types_ and _kinds_ of argspecs can be combined to create, for example,
+a regex-based position-independent argspec.
 
-##### Position-Dependent argspec
-
-A position-dependent exact string match looks like `n:value` where `n` is a
-position indicator and `value` is a literal string value.
-This argspec matches if the argument at position `n` has exactly the value
-`value`.
-For example, the argspec `1:branch` expects the first argument to be exactly
-`branch`.
-As you can see, counting of arguments starts at 1.
-As another example, the argspec `3:some-fancy-value` expects argument 3 to be
-exactly `some-fancy-value`.
-
-Normal shell-quoting rules apply to argspecs.
+In general, an argspec looks like this: `<position>:<value>`.
+Normal shell-quoting rules apply to argspecs, especially to the `value` part.
 That is, to specify an argument with spaces, you need to quote the argspec.
 We recommend quoting only the value because it is easier to read.
-The last example could thus be changed like this: `3:"some fancy value"`.
+Providing a value containing white space should look like this:
+`3:"some fancy value"`.
 
-Note that you can also replace the numeric value indicating the expected
+##### Numeric Position-Dependent argspec
+
+A _numeric position-dependent_ argspec looks like `n:value` where `n` is a
+numeric position indicator and `value` is a literal string value.
+This argspec matches if the argument at position `n` has exactly the value
+`value`.
+Argument counting starts at 1.
+Arguments at undefined positions can be anything.
+
+** Example**: Only specified argspecs matter
+
+```bash
+shellmock new git
+shellmock config git 0 1:branch
+# Would match the following commands, for example:
+git branch
+git branch -r
+
+shellmock config git 0 2:develop
+# Would match the following commands, for example:
+git checkout develop
+git diff develop main
+```
+
+While the order of numeric argspecs has no influence, we recommend to define
+numeric argspecs in ascending order.
+
+** Example**: Numeric argspec order
+
+```bash
+# these mocks are equivalent
+shellmock config git 0 1:checkout 2:develop 3:master
+shellmock config git 0 1:checkout 3:master 2:develop
+```
+
+##### Incremental Position-Dependent argspec
+
+You can also replace the numeric value indicating the expected
 position of an argument by the letter `i`.
 That letter will automatically be replaced by the value used for the previous
 argspec increased by 1.
 If the first argspec uses the `i` placeholder, it will be replaced by `1`.
-Note that `i` must not follow `any` (see below).
-Thus, to define the expectation of having the command:
+Numeric and incremental position indicators can be mixed.
 
-```bash
-git checkout -b my-branch
-```
-
-You can use the following calls to `shellmock`:
+** Example**: Incremental argspec
 
 ```bash
 shellmock new git
-# The first "i" will be replaced by 1 and each subsequent "i" will be one
-# larger than the previous one.
 shellmock config git 0 i:checkout i:-b i:my-branch
+# Would match the following command, for example:
+git checkout -b my-branch master
+
+shellmock config git 0 2:my-branch i:develop
+# Would match the following commands, for example:
+git diff my-branch develop
+git rebase my-branch develop
 ```
 
-##### Position-Independent argspec
+##### Flexible Position-Independent argspec
 
-A position-independent argspec replaces the position indicator by the literal
-word `any`.
+A flexible position-independent argspec replaces the position indicator by the
+literal word `any`.
 Thus, if we did not care at which position the `branch` keyword were in the
 first example, we could use: `any:branch`.
 
-A regex-based argspec prefixes the position indicator by the literal word
-`regex-` (mind the hyphen!).
+** Example**: Position-independent argspec
+
+```bash
+shellmock new git
+shellmock config git 0 any:develop
+# Would match the following commands, for example:
+git checkout develop
+git push origin develop
+git diff develop main
+```
+
+You can combine position-independent and position-dependent argspecs.
+Note that the position indicator `i` cannot directly follow `any`.
+
+** Example**: Combining position-independent and dependent argspecs
+
+```bash
+shellmock new git
+shellmock config git 0 1:checkout any:feature
+# Would match the following commands, for example:
+git checkout feature
+git checkout -b feature
+```
+
+Note that the flexible position independent argspec matches any position.
+That is, even if it precedes a numeric argspec, it can still match later
+arguments.
+
+** Example**: Flexible argspecs match anywhere
+
+```bash
+shellmock new git
+shellmock config git 0 any:feature 3:master
+# Would match the following commands, for example:
+git checkout feature master    # -> any matches at position 2
+git diff --raw master feature  # -> any matches at position 4
+```
+
+#### Regex-Based argspec
+
+A regex-based argspec prefixes the numeric or flexible position indicator by the
+literal word `regex-` (mind the hyphen!).
+Specify the argspec as `regex-n:value` (with n being a positive integer) or
+`regex-any:value`.
+You _cannot_ combine it with the flexible position indicator `i`, though.
+
 With such an argspec, `value` will be re-interpreted as a _bash regular
 expression_ matched via the comparison `[[ ${argument} =~ ${value} ]]`.
-You can also use the position indicator `regex-any` to have a
-position-independent regex match.
-You _cannot_ use `regex-i`, though.
+
+** Example**: Regex-based argspecs
+
+```bash
+shellmock new git
+shellmock config git 0 regex-2:^feature
+# Would match the following commands, for example:
+git checkout feature/foobar
+git merge feature/barbaz
+
+shellmock config git 0 regex-any:^feature
+# Would match the following commands, for example:
+git checkout -b feature/foobar
+git merge feature/barbaz
+```
 
 We _strongly recommend against_ using `regex-1:^branch$` instead of the exact
 string match `1:branch` because of the many special characters in regular
 expressions.
 It is very easy to input a character that is interpreted as a special one
-without realising that.
+without realizing that.
+You can, of course, combine string and regex based argspecs.
+
+** Example**: Combining string-based and regex-based argspecs
+
+```bash
+shellmock new git
+shellmock config git 0 1:checkout regex-any:^feature
+# Would match the following commands, for example:
+git checkout feature/foobar
+git checkout -b feature/barbaz master
+```
 
 ### assert
 
@@ -224,7 +342,7 @@ We recommend to always use `expectations` as assertion type.
 
 <!-- shellmock-helptext-end -->
 
-Example:
+** Example**: Asserting expectations
 
 ```bash
 shellmock assert expectations git
@@ -256,8 +374,8 @@ There are currently the following types of assertions.
 
 Syntax:
 
-- `shellmock global-config <getval> <setting>`
-- `shellmock global-config <setval> <setting> <value>`
+- `shellmock global-config getval <setting>`
+- `shellmock global-config setval <setting> <value>`
 
 <!-- shellmock-helptext-end -->
 
@@ -325,3 +443,128 @@ not be executed.
 The default value is 1.
 Use `shellmock global-config setval killparent 0` to disable.
 Use `shellmock global-config getval killparent` to retrieve the current setting.
+
+### calls
+
+<!-- shellmock-helptext-start -->
+
+Syntax: `shellmock calls <name> [--plain|--json]`
+
+The `calls` command retrieves information about past calls to your mock.
+The `calls` command is useful when developing mocks.
+
+<!-- shellmock-helptext-end -->
+
+The `calls` command takes one mandatory and one optional argument.
+The first, mandatory argument is the name of the mock executable for which you
+wish to retrieve call details.
+The second, optional argument specifies the output format.
+The output format defaults to `--plain`, but you can also choose JSON, which
+simplifies automated processing or may be easier to view.
+
+#### Example
+
+This example specifies a generic mock, calls it four times with different
+arguments and stdin, and then retrieves the information about all four calls.
+The output of `shellmock calls` also suggests a `shellmock config` call that
+would configure the mock to accept the given call.
+
+```bash
+# A mock configured like this accepts any argument and always exits with
+# success.
+shellmock new git
+shellmock config git 0
+# Call the mock several times, simulating a script to be tested.
+git branch -l              # List existing branches
+git checkout -b new-branch # Create a new branch and check it out.
+git branch -l <<< "null"   # List branches again.
+git branch -d new-branch   # Delete the branch again.
+# Retrieve call details in plain text format. The command will always exit with
+# an error code, thus failing the test. Bats writes the output of a failed test
+# to the terminal for the developer to see.
+shellmock calls git --plain
+```
+
+Design your actual mocks based on the output of the failing test above.
+The output for this example contains all details about all of the calls.
+The output would be:
+
+<!-- prettier-ignore-start -->
+```
+name:       git
+id:         1
+args:       branch -l
+stdin:      
+suggestion: shellmock config git 0 1:branch 2:-l
+
+name:       git
+id:         2
+args:       checkout -b new-branch
+stdin:      
+suggestion: shellmock config git 0 1:checkout 2:-b 3:new-branch
+
+name:       git
+id:         3
+args:       branch -l
+stdin:      null
+suggestion: shellmock config git 0 1:branch 2:-l <<< null
+
+name:       git
+id:         4
+args:       branch -d new-branch
+stdin:      
+suggestion: shellmock config git 0 1:branch 2:-d 3:new-branch
+```
+<!-- prettier-ignore-end -->
+
+If you were to replace `--plain` by `--json` in the call to `shellmock calls`,
+the output would be as follows instead:
+
+<!-- prettier-ignore-start -->
+```json
+[
+  {
+    "name": "git",
+    "id": "1",
+    "args": [
+      "branch",
+      "-l"
+    ],
+    "stdin": "",
+    "suggestion": "shellmock config git 0 1:branch 2:-l"
+  },
+  {
+    "name": "git",
+    "id": "2",
+    "args": [
+      "checkout",
+      "-b",
+      "new-branch"
+    ],
+    "stdin": "",
+    "suggestion": "shellmock config git 0 1:checkout 2:-b 3:new-branch"
+  },
+  {
+    "name": "git",
+    "id": "3",
+    "args": [
+      "branch",
+      "-l"
+    ],
+    "stdin": "null",
+    "suggestion": "shellmock config git 0 1:branch 2:-l <<< null"
+  },
+  {
+    "name": "git",
+    "id": "4",
+    "args": [
+      "branch",
+      "-d",
+      "new-branch"
+    ],
+    "stdin": "",
+    "suggestion": "shellmock config git 0 1:branch 2:-d 3:new-branch"
+  }
+]
+```
+<!-- prettier-ignore-end -->

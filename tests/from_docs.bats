@@ -48,6 +48,10 @@ script() {
     fi
     # Check out the branch. It is guaranteed to exist.
     git checkout "${branch_name}"
+    # List all existing branches at the end, informing the user which branches
+    # exist at the moment.
+    echo "Current branches:"
+    git branch -l
   fi
 }
 
@@ -56,13 +60,18 @@ script() {
   shellmock new git
   # Configure the mock to have an exit code of 0 if it is called with the
   # rev-parse command. This simulates git reporting that the branch exists. The
-  # name can be at any position.
-  shellmock config git 0 1:rev-parse any:some_branch
+  # name must be at position 4. The values at positions 2 and 3 do not matter.
+  shellmock config git 0 1:rev-parse 4:some_branch
   # Configure the mock to have an exit code of 0 if it is called with the
-  # checkout command and a specific branch name.
-  shellmock config git 0 1:checkout 2:some_branch
+  # checkout command and a specific branch name. The branch name can be at any
+  # position.
+  shellmock config git 0 1:checkout any:some_branch
+  # Configure the mock to have an exit code of 0 if it is called with the
+  # branch command and the -l argument. The mock will write "* some branch" to
+  # stdout.
+  shellmock config git 0 1:branch 2:-l <<< "* some_branch"
   # Now run your script via the "run" built-in. Here "${script}" contains the
-  # path to your executable script. We use a shell function here.
+  # path to your executable script.
   run "${script}" some_branch
   # Now assert that the calls you expected have indeed happened. If there had
   # been an unexpected call, e.g. to " git branch", this line would error out
@@ -83,6 +92,10 @@ script() {
   # branch command and a specific branch name. We match the branch name, which
   # is argument 2, with a bash regular expression.
   shellmock config git 0 1:branch regex-2:"^feature/.*$"
+  # Configure the mock to have an exit code of 0 if it is called with the
+  # branch command and the -l argument. The mock will write "* some branch" to
+  # stdout. The first matching config will be used.
+  shellmock config git 0 1:branch 2:-l <<< "* some_branch"
   # The checkout command should also succeed for any feature branch.
   shellmock config git 0 1:checkout regex-2:"^feature/.*$"
   run "${script}" "feature/some-feature"

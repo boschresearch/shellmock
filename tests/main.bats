@@ -24,10 +24,12 @@
 setup_file() {
   # Ensure we use the minimum required bats version and fail with a nice error
   # if not.
+  #shellcheck disable=SC2317
   bats_require_minimum_version 1.5.0
 }
 
 setup() {
+  #shellcheck disable=SC2317
   load ../shellmock
 }
 
@@ -206,8 +208,10 @@ setup() {
   # stderr, which means we have to redirect to stdout to capture it.
   report="$(shellmock assert expectations my_exe 2>&1 || :)"
 
-  grep "^SHELLMOCK: cannot find call for argspec: 1:muhaha" <<< "${report}"
-  grep -x "SHELLMOCK: at least one expected call was not issued\." \
+  grep "^SHELLMOCK: cannot find call for mock my_exe and argspec: 1:muhaha" \
+    <<< "${report}"
+  grep -x \
+    "SHELLMOCK: at least one expected call for mock my_exe was not issued\." \
     <<< "${report}"
 }
 
@@ -228,8 +232,10 @@ setup() {
 
   report="$(shellmock assert expectations my_exe 2>&1 || :)"
 
-  grep "^SHELLMOCK: cannot find call for argspec: 1:muhaha" <<< "${report}"
-  grep -x "SHELLMOCK: at least one expected call was not issued\." \
+  grep "^SHELLMOCK: cannot find call for mock my_exe and argspec: 1:muhaha" \
+    <<< "${report}"
+  grep -x \
+    "SHELLMOCK: at least one expected call for mock my_exe was not issued\." \
     <<< "${report}"
 }
 
@@ -360,4 +366,111 @@ setup() {
   fi
 
   [[ ${stderr} == "Cannot use non-numerical last counter as increment base." ]]
+}
+
+@test "logging mock calls as plain text" {
+  # A mock configured like this accepts any argument and always exits with
+  # success.
+  shellmock new git
+  shellmock config git 0
+  # Call the mock several times.
+  git branch -l <<< "nu'll"        # List existing branches
+  git checkout -b 'strange\branch' # Create a new branch and check it out.
+  git reset --soft 'with"quotes'   # Reset the repo to an old state.
+  # Retrieve call details. The command will always fail to emphasise that it
+  # should only be used for mock development. However, to validate what was
+  # written to stdout for this test, we ignore the return value here if it is
+  # the expected "1".
+  logs=$(
+    shellmock calls git --plain
+    [[ $? -eq 1 ]]
+  )
+  # We default to plain text by default.
+  paste <(echo "${logs}") <(shellmock calls git || :)
+  diff <(echo "${logs}") <(shellmock calls git || :)
+  # Check that we generated what we expected to.
+  local expected
+  expected=$(
+    cat << 'EOF'
+name:       git
+id:         1
+args:       branch -l
+stdin:      nu'll
+suggestion: shellmock config git 0 1:branch 2:-l <<< nu\'ll
+
+name:       git
+id:         2
+args:       checkout -b strange\branch
+stdin:      
+suggestion: shellmock config git 0 1:checkout 2:-b 3:strange\\branch
+
+name:       git
+id:         3
+args:       reset --soft with"quotes
+stdin:      
+suggestion: shellmock config git 0 1:reset 2:--soft 3:with\"quotes
+EOF
+  )
+  diff <(echo "${expected}") <(echo "${logs}")
+}
+
+@test "logging mock calls as json" {
+  # A mock configured like this accepts any argument and always exits with
+  # success.
+  shellmock new git
+  shellmock config git 0
+  # Call the mock several times.
+  git branch -l <<< "nu'll"        # List existing branches
+  git checkout -b 'strange\branch' # Create a new branch and check it out.
+  git reset --soft 'with"quotes'   # Reset the repo to an old state.
+  # Retrieve call details. The command will always fail to emphasise that it
+  # should only be used for mock development. However, to validate what was
+  # written to stdout for this test, we ignore the return value here if it is
+  # the expected "1".
+  logs=$(
+    shellmock calls git --json
+    [[ $? -eq 1 ]]
+  )
+  # Check that we generate valid JSON.
+  jq > /dev/null <<< "${logs}"
+  # Check that we generated what we expected to. Use raw strings throughout,
+  # i.e. have jq undo the JSON quoting done by shellmock.
+  # Names.
+  [[ $(jq -r ".[].name" <<< "${logs}" | sort | uniq) == git ]]
+  # IDs.
+  [[ $(jq -r ".[].id" <<< "${logs}") == $'1\n2\n3' ]]
+  # STDINs.
+  [[ "$(jq -r ".[0].stdin" <<< "${logs}")" == "nu'll" ]]
+  [[ -z "$(jq -r ".[1].stdin" <<< "${logs}")" ]]
+  [[ -z "$(jq -r ".[2].stdin" <<< "${logs}")" ]]
+  # Args.
+  [[ "$(jq -r ".[0].args[0]" <<< "${logs}")" == "branch" ]]
+  [[ "$(jq -r ".[0].args[1]" <<< "${logs}")" == "-l" ]]
+  [[ "$(jq -r ".[1].args[0]" <<< "${logs}")" == "checkout" ]]
+  [[ "$(jq -r ".[1].args[1]" <<< "${logs}")" == "-b" ]]
+  [[ "$(jq -r ".[1].args[2]" <<< "${logs}")" == 'strange\branch' ]]
+  [[ "$(jq -r ".[2].args[0]" <<< "${logs}")" == "reset" ]]
+  [[ "$(jq -r ".[2].args[1]" <<< "${logs}")" == "--soft" ]]
+  [[ "$(jq -r ".[2].args[2]" <<< "${logs}")" == 'with"quotes' ]]
+  # Suggestions.
+  suggestion="$(jq -r ".[0].suggestion" <<< "${logs}")"
+  expectation="shellmock config git 0 1:branch 2:-l <<< nu\\'ll"
+  [[ ${suggestion} == "${expectation}" ]]
+  suggestion="$(jq -r ".[1].suggestion" <<< "${logs}")"
+  expectation='shellmock config git 0 1:checkout 2:-b 3:strange\\branch'
+  [[ ${suggestion} == "${expectation}" ]]
+  suggestion="$(jq -r ".[2].suggestion" <<< "${logs}")"
+  expectation='shellmock config git 0 1:reset 2:--soft 3:with\"quotes'
+  [[ ${suggestion} == "${expectation}" ]]
+}
+
+@test "disallowing specifying multiple arguments per index" {
+  shellmock new my_exe
+  # Here, "i" will take the value of "2", which has already been specified.
+  # Shellmock will not allow specifying multiple arguments for the same argspec.
+  run ! shellmock config my_exe 0 2:two 1:one i:three regex-1:another-one
+
+  local expected="Multiple arguments specified for the following \
+indices, cannot continue: 2 1"
+  [[ ${output} == "${expected}" ]]
 }
