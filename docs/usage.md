@@ -45,12 +45,18 @@ sure to replace `${PATH_TO_SHELLMOCK_LIBRARY}` appropriately.
 You can access all functionality of Shellmock via the `shellmock` command.
 It is implemented as a shell function with the following sub-commands:
 
-- `new`: Create a new mock for an executable.
-- `config`: Configure a previously-created mock by defining expectations.
-- `assert`: Assert based on previously-configured expectations.
-- `global-config`: Configure global behaviour of Shellmock itself.
-- `calls`: Log past calls to mocks and suggest mock configs to reproduce.
-- `help`: Provide a help text.
+- `new`:
+  Create a new mock for an executable.
+- `config`:
+  Configure a previously-created mock by defining expectations.
+- `assert`:
+  Assert based on previously-configured expectations.
+- `global-config`:
+  Configure global behaviour of Shellmock itself.
+- `calls`:
+  Log past calls to mocks and suggest mock configs to reproduce.
+- `help`:
+  Provide a help text.
 
 <!-- shellmock-helptext-end -->
 
@@ -60,7 +66,8 @@ The more complex sub-commands will be described below in detail.
 
 <!-- shellmock-helptext-start -->
 
-Syntax: `shellmock new <name>`
+Syntax:
+`shellmock new <name>`
 
 The `new` command creates a new mock executable called `name`.
 It is created in a directory in your `PATH` that is controlled by Shellmock.
@@ -68,8 +75,8 @@ You need to create a mock before you can configure it or make assertions on it.
 
 <!-- shellmock-helptext-end -->
 
-The `new` command takes exactly one argument: the name of the executable to be
-mocked.
+The `new` command takes exactly one argument:
+the name of the executable to be mocked.
 For example:
 
 ```bash
@@ -84,7 +91,8 @@ from that point forward, assuming no code changes `PATH`.
 
 <!-- shellmock-helptext-start -->
 
-Syntax: `shellmock config <name> <exit_code> [1:<argspec> [...]]`
+Syntax:
+`shellmock config <name> <exit_code> [1:<argspec> [...]]`
 
 The `config` command defines expectations for calls to your mocked executable.
 You need to define expectations before you can make assertions on your mock.
@@ -108,7 +116,8 @@ Everything read from standard input will be echoed by the mock to its standard
 output verbatim.
 There is no way to have the mock write something to standard error.
 
-** Example**: A call to `git branch` that
+** Example**:
+A call to `git branch` that
 
 - returns with exit code `0`, indicating success,
 - expects to be called with `branch` as first argument, and
@@ -146,7 +155,8 @@ Argspec sets as defined via `config` are matched in order of definition.
 The first one found that matches the given arguments will be used by the mock
 executable.
 
-** Example**: Catch-all mock configuration
+** Example**:
+Catch-all mock configuration
 
 ```bash
 shellmock new git
@@ -164,18 +174,20 @@ fi
 
 #### argspec Definitions
 
-There are three _types_ of argspecs: two position-dependent ones (numeric and
-incremental) and one position-independent (flexible) one.
+There are three _types_ of argspecs:
+two position-dependent ones (numeric and incremental) and one
+position-independent (flexible) one.
 Position-dependent types should be preferred whenever possible.
 
-There are also two _kinds_ of argspecs: exact string matches and regex-based
-string matches.
+There are also two _kinds_ of argspecs:
+exact string matches and regex-based string matches.
 Exact string matches should be preferred whenever possible.
 
-The _types_ and _kinds_ of argspecs can be combined to create, for example,
-a regex-based position-independent argspec.
+The _types_ and _kinds_ of argspecs can be combined to create, for example, a
+regex-based position-independent argspec.
 
-In general, an argspec looks like this: `<position>:<value>`.
+In general, an argspec looks like this:
+`<position>:<value>`.
 Normal shell-quoting rules apply to argspecs, especially to the `value` part.
 That is, to specify an argument with spaces, you need to quote the argspec.
 We recommend quoting only the value because it is easier to read.
@@ -191,7 +203,8 @@ This argspec matches if the argument at position `n` has exactly the value
 Argument counting starts at 1.
 Arguments at undefined positions can be anything.
 
-** Example**: Only specified argspecs matter
+** Example**:
+Only specified argspecs matter
 
 ```bash
 shellmock new git
@@ -209,7 +222,8 @@ git diff develop main
 While the order of numeric argspecs has no influence, we recommend to define
 numeric argspecs in ascending order.
 
-** Example**: Numeric argspec order
+** Example**:
+Numeric argspec order
 
 ```bash
 # these mocks are equivalent
@@ -219,14 +233,15 @@ shellmock config git 0 1:checkout 3:master 2:develop
 
 ##### Incremental Position-Dependent argspec
 
-You can also replace the numeric value indicating the expected
-position of an argument by the letter `i`.
+You can also replace the numeric value indicating the expected position of an
+argument by the letter `i`.
 That letter will automatically be replaced by the value used for the previous
 argspec increased by 1.
 If the first argspec uses the `i` placeholder, it will be replaced by `1`.
 Numeric and incremental position indicators can be mixed.
 
-** Example**: Incremental argspec
+** Example**:
+Incremental argspec
 
 ```bash
 shellmock new git
@@ -245,9 +260,11 @@ git rebase my-branch develop
 A flexible position-independent argspec replaces the position indicator by the
 literal word `any`.
 Thus, if we did not care at which position the `branch` keyword were in the
-first example, we could use: `any:branch`.
+first example, we could use:
+`any:branch`.
 
-** Example**: Position-independent argspec
+** Example**:
+Position-independent argspec
 
 ```bash
 shellmock new git
@@ -261,7 +278,8 @@ git diff develop main
 You can combine position-independent and position-dependent argspecs.
 Note that the position indicator `i` cannot directly follow `any`.
 
-** Example**: Combining position-independent and dependent argspecs
+** Example**:
+Combining position-independent and dependent argspecs
 
 ```bash
 shellmock new git
@@ -275,7 +293,8 @@ Note that the flexible position independent argspec matches any position.
 That is, even if it precedes a numeric argspec, it can still match later
 arguments.
 
-** Example**: Flexible argspecs match anywhere
+** Example**:
+Flexible argspecs match anywhere
 
 ```bash
 shellmock new git
@@ -296,7 +315,8 @@ You _cannot_ combine it with the flexible position indicator `i`, though.
 With such an argspec, `value` will be re-interpreted as a _bash regular
 expression_ matched via the comparison `[[ ${argument} =~ ${value} ]]`.
 
-** Example**: Regex-based argspecs
+** Example**:
+Regex-based argspecs
 
 ```bash
 shellmock new git
@@ -318,7 +338,8 @@ It is very easy to input a character that is interpreted as a special one
 without realizing that.
 You can, of course, combine string and regex based argspecs.
 
-** Example**: Combining string-based and regex-based argspecs
+** Example**:
+Combining string-based and regex-based argspecs
 
 ```bash
 shellmock new git
@@ -332,7 +353,8 @@ git checkout -b feature/barbaz master
 
 <!-- shellmock-helptext-start -->
 
-Syntax: `shellmock assert <type> <name>`
+Syntax:
+`shellmock assert <type> <name>`
 
 The `assert` command can be used to check whether expectations previously
 defined via the `config` command have been fulfilled for a mock or not.
@@ -342,7 +364,8 @@ We recommend to always use `expectations` as assertion type.
 
 <!-- shellmock-helptext-end -->
 
-** Example**: Asserting expectations
+** Example**:
+Asserting expectations
 
 ```bash
 shellmock assert expectations git
@@ -448,7 +471,8 @@ Use `shellmock global-config getval killparent` to retrieve the current setting.
 
 <!-- shellmock-helptext-start -->
 
-Syntax: `shellmock calls <name> [--plain|--json]`
+Syntax:
+`shellmock calls <name> [--plain|--json]`
 
 The `calls` command retrieves information about past calls to your mock.
 The `calls` command is useful when developing mocks.

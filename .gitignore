@@ -1,3 +1,6 @@
 # Deployable.
 /shellmock.bash
 /.coverage
+# Version test artefacts.
+/.failed
+/.bash-*_test.log

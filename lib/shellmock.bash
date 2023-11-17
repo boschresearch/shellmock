@@ -23,6 +23,10 @@
 # installed on the system. It also sets some global, internal configurations to
 # their default values.
 __shellmock_internal_init() {
+  # Check minimum required bash version.
+  if ! __shellmock_internal_bash_version_check; then
+    return 1
+  fi
   local has_bats=1
   if [[ -z ${BATS_RUN_TMPDIR} ]]; then
     has_bats=0
@@ -53,6 +57,23 @@ __shellmock_internal_init() {
   # By default, we kill a mock's parent process in case there is an unexpected
   # call.
   declare -gx __SHELLMOCK__KILLPARENT=1
+}
+
+__shellmock_internal_bash_version_check() {
+  if [[ -z ${BASH_VERSION} ]]; then
+    echo >&2 "Shellmock requires bash but different shell detected."
+    return 1
+  fi
+  local major minor
+  major="${BASH_VERSION%%.*}"
+  minor="${BASH_VERSION#*.}"
+  minor="${minor%%.*}"
+
+  # Error out if the version is too low.
+  if [[ ${major} -lt 4 ]] || [[ ${major} -eq 4 && ${minor} -lt 4 ]]; then
+    echo >&2 "Shellmock requires bash >= 4.4 but ${BASH_VERSION} detected."
+    return 1
+  fi
 }
 
 # Check whether PATH changed since shellmock has been initialised. If it has

@@ -46,7 +46,7 @@ __shellmock__help() {
 This is shellmock, a tool to mock executables called within shell scripts.
 ENDOFFILE
 
-  awk \
+  gawk \
     -v start='<!-- shellmock-helptext-start -->' \
     -v end='<!-- shellmock-helptext-end -->' \
     'BEGIN{act=0} {if($0==end){act=0}; if(act==1){print}; if($0==start){act=1;};}' \

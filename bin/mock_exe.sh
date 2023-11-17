@@ -112,7 +112,7 @@ _match_spec() {
 
   while read -r spec; do
     local id val
-    id="$(awk -F: '{print $1}' <<< "${spec}")"
+    id="$(gawk -F: '{print $1}' <<< "${spec}")"
     val="${spec##"${id}":}"
 
     if [[ ${spec} =~ ^any: ]]; then
@@ -136,7 +136,7 @@ _match_spec() {
       errecho "Internal error, incorrect spec ${spec}"
       return 1
     fi
-  done < <(base64 --decode <<< "${full_spec}")
+  done < <(base64 --decode <<< "${full_spec}") && wait $!
 }
 
 _kill_parent() {
@@ -169,7 +169,7 @@ find_matching_argspec() {
   done < <(
     env | sed 's/=.*$//' \
       | grep -x "MOCK_ARGSPEC_BASE64_${cmd_b32}_[0-9][0-9]*" | sort -u
-  )
+  ) && wait $!
 
   errecho "SHELLMOCK: unexpected call to '$0 $*'"
   _kill_parent "${PPID}"

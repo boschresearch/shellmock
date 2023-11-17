@@ -471,6 +471,29 @@ EOF
   run ! shellmock config my_exe 0 2:two 1:one i:three regex-1:another-one
 
   local expected="Multiple arguments specified for the following \
-indices, cannot continue: 2 1"
+indices, cannot continue: 1 2 "
   [[ ${output} == "${expected}" ]]
+}
+
+@test "refusing to work with shells other than bash" {
+  if output=$(
+    unset BASH_VERSION
+    load ../shellmock 2>&1
+  ); then
+    echo >&2 "Expected failure to load shellmock."
+    exit 1
+  else
+    expected="Shellmock requires bash but different shell detected."
+    grep -x "${expected}" <<< "${output}"
+  fi
+}
+
+@test "refusing to work with old bash versions" {
+  if output=$(BASH_VERSION=1.2 load ../shellmock 2>&1); then
+    echo >&2 "Expected failure to load shellmock."
+    exit 1
+  else
+    expected="Shellmock requires bash >= 4.4 but 1.2 detected."
+    grep -x "${expected}" <<< "${output}"
+  fi
 }

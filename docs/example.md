@@ -2,13 +2,13 @@
   Copyright (c) 2022 - for information on the respective copyright owner
   see the NOTICE file or the repository
   https://github.com/boschresearch/shellmock
-  
+
   Licensed under the Apache License, Version 2.0 (the "License"); you may not
   use this file except in compliance with the License. You may obtain a copy of
   the License at
-  
+
     http://www.apache.org/licenses/LICENSE-2.0
-  
+
   Unless required by applicable law or agreed to in writing, software
   distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
   WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -31,7 +31,7 @@ That script could look like this:
 # Read argument to script.
 branch_name="$1"
 # Ensure the argument is non-empty.
-if [[ -z "${branch_name}" ]]; then
+if [[ -z ${branch_name} ]]; then
   echo "Empty argument received." >&2
   # This command always exits with an error. It's the last one executed and,
   # thus, its exit code will be the one of this script. It is important not to
@@ -61,7 +61,7 @@ For example, you could test:
 
 The below examples assume some familiarity with [bats-core].
 If you want to get started with [bats-core]-based testing, we can recommend this
-[bats testing guide][bats-guide].
+[bats testing guide][bats-guide].
 Although, instead of installing [bats-core] as a `git` sub-module, we recommend
 a user-space installation via `npm` via `npm install -g bats`.
 
@@ -148,7 +148,7 @@ To do so, you need to use shell functions throughout and source the script in
 your tests.
 Doing so will allow you to test individual functions.
 You can also mock functions called by your own functions.
-Please have a look at [shellmock's own tests][shellmock-tests] for what is
+Please have a look at [shellmock's own tests][shellmock-tests] for what is
 possible.
 
 [bats-core]: https://bats-core.readthedocs.io/ "bats core website"

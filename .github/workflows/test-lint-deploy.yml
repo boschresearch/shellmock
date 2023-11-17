@@ -36,12 +36,13 @@ jobs:
 
     steps:
       - name: Install system dependencies
-        env: 
+        env:
           DEBIAN_FRONTEND: noninteractive
         run: |
           sudo apt-get update -qq
           sudo apt-get install -qqy --no-install-recommends \
-            ca-certificates coreutils curl git jq kcov make shellcheck
+            build-essential ca-certificates coreutils curl gawk gcc git jq \
+            kcov make shellcheck
 
       - name: Install bats
         run: |
@@ -65,9 +66,36 @@ jobs:
           chmod +x shfmt
           sudo mv shfmt /usr/local/bin/shfmt
 
+      - name: Install prettier
+        run: |
+          curl -sSfL -o install_nvm.sh https://raw.githubusercontent.com/nvm-sh/nvm/${NVM_VERSION}/install.sh
+          echo "${NVMINSTALL_SHA256} install_nvm.sh" | sha256sum --check
+          bash install_nvm.sh
+          source "${HOME}/.nvm/nvm.sh"
+          nvm install "${NODE_VERSION}"
+          dirname "$(which npm)" >> "${GITHUB_PATH}"
+          npm install -g prettier
+        env:
+          NODE_VERSION: "20"
+          NVM_VERSION: v0.39.5
+          NVMINSTALL_SHA256: 69da4f89f430cd5d6e591c2ccfa2e9e3ad55564ba60f651f00da85e04010c640
+
+      - name: Install mdslw
+        run: |
+          curl -sSfL -o mdslw https://github.com/razziel89/mdslw/releases/download/${MDSLW_VERSION}/mdslw_x86_64-unknown-linux-musl
+          echo "${MDSLW_SHA256} mdslw" | sha256sum --check
+          chmod +x mdslw
+          sudo mv mdslw /usr/local/bin
+        env:
+          MDSLW_VERSION: 0.5.5
+          MDSLW_SHA256: 04d944b8e9596b82b7511c29bbf5ff10ab3ca707772d6a3164acb087a7e3f02e
+
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
+
+      - name: Build Package
+        run: make build
 
       - name: Test Package
         run: make test
@@ -75,8 +103,9 @@ jobs:
       - name: Lint Package
         run: make lint
 
-      - name: Build Package
-        run: make build
+      - name: Test Supported Bash Versions
+        if: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/') }}
+        run: make test-bash-versions
 
       - name: Publish package on GH (only tags)
         if: ${{ startsWith(github.ref, 'refs/tags/') }}

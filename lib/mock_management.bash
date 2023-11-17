@@ -52,8 +52,10 @@ __shellmock_assert_no_duplicate_argspecs() {
     fi
   done
   if [[ ${#duplicate_arg_indices[@]} -gt 0 ]]; then
-    echo >&2 "Multiple arguments specified for the following indices," \
-      "cannot continue: ${!duplicate_arg_indices[*]}"
+    local dups
+    dups=$(printf '%s\n' "${!duplicate_arg_indices[@]}" | sort -n | tr '\n' ' ')
+    echo >&2 "Multiple arguments specified for the following indices, cannot" \
+      "continue: ${dups}"
     return 1
   fi
 }
@@ -183,7 +185,7 @@ __shellmock__assert() {
       fi
     done < <(
       find "${__SHELLMOCK_OUTPUT}/${cmd_b32}" -mindepth 2 -type f -name stderr
-    )
+    ) && wait $!
     if [[ ${has_err} -ne 0 ]]; then
       echo >&2 "SHELLMOCK: got at least one unexpected call for mock ${cmd}."
       return 1
@@ -196,17 +198,18 @@ __shellmock__assert() {
   call-correspondence)
     declare -a actual_argspecs
     mapfile -t actual_argspecs < <(
-      [[ -d "${__SHELLMOCK_OUTPUT}/${cmd_b32}" ]] \
-        && find "${__SHELLMOCK_OUTPUT}/${cmd_b32}" -mindepth 2 -type f \
+      if [[ -d "${__SHELLMOCK_OUTPUT}/${cmd_b32}" ]]; then
+        find "${__SHELLMOCK_OUTPUT}/${cmd_b32}" -mindepth 2 -type f \
           -name argspec -print0 | xargs -0 cat | sort -u
-    )
+      fi
+    ) && wait $!
 
     declare -a expected_argspecs
     mapfile -t expected_argspecs < <(
       env | sed 's/=.*$//' \
         | grep -x "MOCK_ARGSPEC_BASE64_${cmd_b32}_[0-9][0-9]*" \
         | sort -u
-    )
+    ) && wait $!
 
     local has_err=0
     for argspec in "${expected_argspecs[@]}"; do
@@ -285,7 +288,7 @@ __shellmock__calls() {
   readarray -d $'\n' -t call_ids < <(
     find "${__SHELLMOCK_OUTPUT}/${cmd_b32}" -mindepth 1 -maxdepth 1 -type d \
       | sort -n
-  )
+  ) && wait $!
 
   for call_idx in "${!call_ids[@]}"; do
     local call_id="${call_ids[${call_idx}]}"

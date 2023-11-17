@@ -1,13 +1,13 @@
 # Copyright (c) 2022 - for information on the respective copyright owner
 # see the NOTICE file or the repository
 # https://github.com/boschresearch/shellmock
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not
 # use this file except in compliance with the License. You may obtain a copy of
 # the License at
-# 
+#
 #   http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -40,6 +40,45 @@ lint:
 test: build
 	bats --print-output-on-failure ./tests/*.bats
 
+DOWNLOAD_URL_PREFIX := https://mirror.kumi.systems/gnu/bash/
+
+.PHONY: build-bash-version
+build-bash-version:
+	# Ensure that the arguments have been set.
+	[[ -n "$(BASH_VERSION)" && -n "$(BASH_PATH)" ]]
+	cd "$(BASH_PATH)" && \
+	curl -sSfL -o bash.tar.gz "$(DOWNLOAD_URL_PREFIX)/bash-$(BASH_VERSION).tar.gz" && \
+	tar -xvzf bash.tar.gz && \
+	cd "bash-$(BASH_VERSION)" && \
+	./configure && \
+	make && \
+	mv bash "$(BASH_PATH)"
+
+.PHONY: test-bash-version
+test-bash-version:
+	# Ensure that the temp dir will be removed afterwards.
+	tmp=$$(mktemp -d) && trap "rm -rf '$${tmp}'" EXIT && \
+	$(MAKE) build-bash-version BASH_PATH="$${tmp}" && \
+	export PATH="$${tmp}:$${PATH}" && \
+	echo "INFO: using $$(which bash) @ $$(bash -c 'echo $${BASH_VERSION}')" && \
+	bats --print-output-on-failure ./tests/*.bats
+
+SUPPORTED_VERSIONS := 5.2 5.1 5.0 4.4
+
+.PHONY: test-bash-versions
+test-bash-versions: build
+	rm -f .failed .bash-*_test.log
+	for version in $(SUPPORTED_VERSIONS); do \
+		$(MAKE) test-bash-version BASH_VERSION="$${version}" 2>&1 \
+		| tee ".bash-$${version}_test.log" \
+		|| echo "$${version}" >> .failed & \
+	done; \
+	wait
+	if [[ -s .failed ]]; then \
+		echo "Failed versions: $$(sort .failed | tr -s '[:space:]' ' ')"; \
+	fi
+	[[ ! -s .failed ]]
+
 COVERAGE_FAILED_MESSAGE := \
 	Cannot generate coverage reports as root user because kcov is not \
 	compatible with current versions of bash when run as root, also see \
@@ -54,7 +93,7 @@ coverage: test
 		bats --print-output-on-failure ./tests/*.bats
 	# Analyse output of coverage reports and fail if not all files have been
 	# covered of if coverage is not high enough.
-	awk \
+	gawk \
 	  -v min_cov="92" \
 	  -v tot_num_files="1" \
 	  'BEGIN{num_files=0; cov=0;} \
@@ -77,10 +116,12 @@ coverage: test
 format:
 	shfmt -w -bn -i 2 -sr -ln bash ./bin/* ./lib/*
 	shfmt -w -bn -i 2 -sr -ln bats ./tests/*
+	mdslw --mode=format --upstream="prettier --parser=markdown" .
 
 check-format:
 	shfmt -d -bn -i 2 -sr -ln bash ./bin/* ./lib/*
 	shfmt -d -bn -i 2 -sr -ln bats ./tests/*
+	mdslw --mode=check --upstream="prettier --parser=markdown" .
 
 build:
 	./generate_deployable.sh

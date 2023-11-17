@@ -2,13 +2,13 @@
   Copyright (c) 2022 - for information on the respective copyright owner
   see the NOTICE file or the repository
   https://github.com/boschresearch/shellmock
-  
+
   Licensed under the Apache License, Version 2.0 (the "License"); you may not
   use this file except in compliance with the License. You may obtain a copy of
   the License at
-  
+
     http://www.apache.org/licenses/LICENSE-2.0
-  
+
   Unless required by applicable law or agreed to in writing, software
   distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
   WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -18,9 +18,9 @@
 
 # shellmock <!-- omit in toc -->
 
-- [Quickstart Guide](#quickstart-guide)
+- [Quickstart Guide](#quickstart-guide)
   - [Dependencies](#dependencies)
-- [Further examples](#further-examples)
+- [Further examples](#further-examples)
 - [Feedback](#feedback)
 - [About](#about)
   - [Maintainers](#maintainers)
@@ -37,13 +37,13 @@ and `golang/mock`.
 ## Quickstart Guide
 
 If you simply want to get this show in the road, just head over to the
-[releases], download the [latest release][latest-release].
+[releases], download the [latest release][latest-release].
 Then, you can write your [bats-core]-based tests.
 Just make sure to use `load shellmock` in your `setup` function.
-You can also have a look at [this example](./docs/example.md) or
-[shellmock's own tests][shellmock-tests].
+You can also have a look at [this example](./docs/example.md) or
+[shellmock's own tests][shellmock-tests].
 
-The [technical documentation](./docs/README.md) will go more in depth on how to
+The [technical documentation](./docs/README.md) will go more in depth on how to
 use `shellmock` to mock any commands but here is a simple example of the command
 and what each parameter does.
 
@@ -66,19 +66,21 @@ The `shellmock` command:
 - `shellmock new curl`
 
   Create a mock executable called `curl` in a directory `shellmock` controls.
-  Then, `shellmock` will modify the `PATH` environment variable to make
-  sure that the mock it controls is used preferentially to the actual
-  `curl` executable on your system.
+  Then, `shellmock` will modify the `PATH` environment variable to make sure
+  that the mock it controls is used preferentially to the actual `curl`
+  executable on your system.
 
 - `shellmock config curl 0 2:http://www.google.com`
 
   Configure the mock.
-  Here, you specify the arguments you expect your command
-  to be called with, as well as the mock's exit status code.
+  Here, you specify the arguments you expect your command to be called with, as
+  well as the mock's exit status code.
 
-  - `0`: the exit status code of the mock (`0` means "success")
-  - `2:http://www.google.com`: State that the second argument of the command
-    is expected to be the literal string `http://www.google.com`.
+  - `0`:
+    the exit status code of the mock (`0` means "success")
+  - `2:http://www.google.com`:
+    State that the second argument of the command is expected to be the literal
+    string `http://www.google.com`.
     Note that counting arguments starts at 1.
     Any other argument could have any value and the mock would accept it.
 
@@ -93,7 +95,7 @@ The `shellmock` command:
     via a previous call to `shellmock config` (i.e. an expected call is
     missing).
 
-Please have a look at the [full command reference](./docs/usage.md) for all
+Please have a look at the [full command reference](./docs/usage.md) for all
 details.
 
 [shellmock-tests]: ./tests/main.bats "shellmock tests"
@@ -104,13 +106,13 @@ details.
 
 The following tools are needed to use `shellmock`:
 
-- `awk`
 - `base32`
 - `base64`
-- `bash`
+- `bash` (at least version 4.4)
 - `cat`
 - `env`
 - `find`
+- `gawk`
 - `grep`
 - `sed`
 - `sort`
@@ -125,8 +127,8 @@ sudo apt install -yqq coreutils findutils gawk grep sed
 
 ## Further examples
 
-As mentioned before, you can check out more examples in [shellmock's own
-tests][shellmock-tests].
+As mentioned before, you can check out more examples in
+[shellmock's own tests][shellmock-tests].
 A non-exhaustive list of examples follows:
 
 - Mock an executable
@@ -148,7 +150,7 @@ But we are eager to hear your feedback on how we could improve!
 
 ### Maintainers
 
-['Torsten Long'](https://github.com/razziel89)
+['Torsten Long'](https://github.com/razziel89)
 
 ### License
 
@@ -158,13 +160,13 @@ See the [LICENSE](./LICENSE) file for details.
 > Copyright (c) 2022 - for information on the respective copyright owner
 > see the NOTICE file or the repository
 > https://github.com/boschresearch/shellmock
-> 
+>
 > Licensed under the Apache License, Version 2.0 (the "License"); you may not
 > use this file except in compliance with the License. You may obtain a copy of
 > the License at
-> 
->   http://www.apache.org/licenses/LICENSE-2.0
-> 
+>
+> http://www.apache.org/licenses/LICENSE-2.0
+>
 > Unless required by applicable law or agreed to in writing, software
 > distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
 > WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -175,13 +177,13 @@ See the [LICENSE](./LICENSE) file for details.
   Copyright (c) 2022 - for information on the respective copyright owner
   see the NOTICE file or the repository
   https://github.com/boschresearch/shellmock
-  
+
   Licensed under the Apache License, Version 2.0 (the "License"); you may not
   use this file except in compliance with the License. You may obtain a copy of
   the License at
-  
+
     http://www.apache.org/licenses/LICENSE-2.0
-  
+
   Unless required by applicable law or agreed to in writing, software
   distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
   WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
