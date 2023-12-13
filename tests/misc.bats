@@ -108,3 +108,21 @@ setup() {
   run git branch
   [[ ${output} == catchall ]]
 }
+
+@test "asserting expectations does not overwrite run's stderr variable" {
+  do_something_and_echo_to_stderr() {
+    some_executable
+    echo >&2 "I write to stderr."
+  }
+
+  shellmock new some_executable
+  shellmock config some_executable 0
+
+  local stderr
+  run --separate-stderr do_something_and_echo_to_stderr
+
+  shellmock assert expectations some_executable
+  [[ ${status} -eq 0 ]]
+  [[ -z ${output} ]]
+  [[ ${stderr} == "I write to stderr." ]]
+}

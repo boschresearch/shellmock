@@ -178,6 +178,7 @@ __shellmock__assert() {
     fi
 
     local has_err=0
+    local stderr
     while read -r stderr; do
       if [[ -s ${stderr} ]]; then
         cat >&2 "${stderr}"

@@ -110,6 +110,7 @@ _match_spec() {
   local full_spec="$1"
   shift
 
+  local spec
   while read -r spec; do
     local id val
     id="$(gawk -F: '{print $1}' <<< "${spec}")"
