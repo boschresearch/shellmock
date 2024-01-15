@@ -28,18 +28,21 @@ __shellmock_internal_init() {
     return 1
   fi
   local has_bats=1
-  if [[ -z ${BATS_RUN_TMPDIR} ]]; then
+  if [[ -z ${BATS_TEST_TMPDIR} ]]; then
     has_bats=0
   fi
   # Modify PATH to permit injecting executables.
   declare -gx __SHELLMOCK_MOCKBIN
-  __SHELLMOCK_MOCKBIN="$(mktemp -d -p "${BATS_RUN_TMPDIR-${TMPDIR-/tmp}}")"
-  mkdir -p "${__SHELLMOCK_MOCKBIN}"
+  __SHELLMOCK_MOCKBIN="$(mktemp -d -p "${BATS_TEST_TMPDIR-${TMPDIR-/tmp}}")"
   export PATH="${__SHELLMOCK_MOCKBIN}:${PATH}"
 
   declare -gx __SHELLMOCK_OUTPUT
-  __SHELLMOCK_OUTPUT="$(mktemp -d -p "${BATS_RUN_TMPDIR-${TMPDIR-/tmp}}")"
-  mkdir -p "${__SHELLMOCK_OUTPUT}"
+  __SHELLMOCK_OUTPUT="$(mktemp -d -p "${BATS_TEST_TMPDIR-${TMPDIR-/tmp}}")"
+
+  declare -gx __SHELLMOCK_EXPECTATIONS_DIR
+  __SHELLMOCK_EXPECTATIONS_DIR="$(
+    mktemp -d -p "${BATS_TEST_TMPDIR-${TMPDIR-/tmp}}"
+  )"
 
   if [[ ${has_bats} -eq 0 ]]; then
     echo >&2 "Running outside of bats, temporary directories will be kept."
@@ -57,6 +60,32 @@ __shellmock_internal_init() {
   # By default, we kill a mock's parent process in case there is an unexpected
   # call.
   declare -gx __SHELLMOCK__KILLPARENT=1
+
+  # By default, we assert that all mocks have had their expectations asserted.
+  # We do so only when running inside of bats because, otherwise, we cannot
+  # easily determine the function at whose end we shall execute the trap.
+  declare -gx __SHELLMOCK__ENSURE_ASSERTIONS
+  declare -gx __SHELLMOCK_TRAP
+  local return_trap
+  return_trap="$(trap -p -- RETURN)"
+  if [[ ${has_bats} -eq 1 ]] && [[ -z ${return_trap} ]]; then
+    trap -- "__shellmock_internal_trap" RETURN
+    __SHELLMOCK__ENSURE_ASSERTIONS=1
+    __SHELLMOCK_TRAP="$(trap -p -- RETURN)"
+  else
+    local reason
+    if [[ -n ${return_trap} ]]; then
+      reason="Detected existing trap '${return_trap}' for RETURN signal."
+    else
+      reason="Not using bats to run tests."
+    fi
+    echo >&2 "${reason}" \
+      "Shellmock will be unable to automatically ensure that" \
+      "expectations have been asserted. Make sure to assert expectations" \
+      "manually for every test."
+    __SHELLMOCK__ENSURE_ASSERTIONS=0
+    __SHELLMOCK_TRAP=
+  fi
 }
 
 __shellmock_internal_bash_version_check() {
@@ -77,13 +106,67 @@ __shellmock_internal_bash_version_check() {
 }
 
 # Check whether PATH changed since shellmock has been initialised. If it has
-# changed, the shellmock's mocks might no longer be used preferentially.
+# changed, then shellmock's mocks might no longer be used preferentially.
 __shellmock_internal_pathcheck() {
   if [[ ${__SHELLMOCK__CHECKPATH} -eq 1 ]] \
     && [[ ${PATH} != "${__SHELLMOCK_PATH}" ]]; then
 
     echo >&2 "WARNING: value for PATH has changed since loading shellmock, " \
       "mocking might no longer work."
+  fi
+}
+
+# Check whether the pre-configured trap changed since shellmock has been
+# initialised. If it has changed, then shellmock's automatic assertion detection
+# will likely not work anymore.
+__shellmock_internal_trapcheck() {
+  if [[ ${__SHELLMOCK__ENSURE_ASSERTIONS} -eq 1 ]] \
+    && [[ "$(trap -p -- RETURN)" != "${__SHELLMOCK_TRAP}" ]]; then
+
+    echo >&2 "WARNING: RETURN trap has changed since loading shellmock," \
+      "we will not be able to automatically ensure that expectations have" \
+      "been asserted."
+  fi
+}
+
+# This function is called as a trap (signal handler) for the RETURN signal. Due
+# to the way bats works, it will be called pretty often at the end of many of
+# bats's helper functions. Thus, we have to determine whether we are being
+# called at the end of the actual test function because that is when we can test
+# whether all expectations have been asserted.
+__shellmock_internal_trap() {
+  # Do not perform any actions if the auto-assert feature has been deactivated.
+  # Do not perform any actions if we are not being called by the expected bats
+  # test function.
+  if
+    [[ ${__SHELLMOCK__ENSURE_ASSERTIONS} -eq 1 &&
+      "$(caller 0)" == *" ${BATS_TEST_NAME-} "* ]]
+  then
+    local defined_cmds
+    readarray -d $'\n' -t defined_cmds < <(
+      find "${__SHELLMOCK_MOCKBIN}" -type f -print0 | xargs -r -0 -I{} basename {}
+    ) && wait $!
+
+    local cmd has_err=0
+    for cmd in "${defined_cmds[@]}"; do
+      if ! [[ -e "${__SHELLMOCK_EXPECTATIONS_DIR}/${cmd}" ]]; then
+        local cmd_quoted
+        cmd_quoted=$(printf "%q" "${cmd}")
+        echo >&2 "ERROR: expectations for mock ${cmd} have not been asserted." \
+          "Consider adding 'shellmock assert expectations ${cmd_quoted}' to" \
+          "the following test: ${BATS_TEST_DESCRIPTION-}"
+        has_err=1
+      fi
+    done
+    # Exit the current process to indicate a test failure. This is how we can
+    # signal a test failure from within a return trap. When running tests, we
+    # only return, though, because bats would be unable to track the test if we
+    # were to call exit here.
+    if [[ ${__SHELLMOCK_TESTING_TRAP-0} -eq 1 ]]; then
+      return "${has_err}"
+    elif [[ ${has_err} -ne 0 ]]; then
+      exit "${has_err}"
+    fi
   fi
 }
 

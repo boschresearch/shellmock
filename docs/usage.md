@@ -418,6 +418,7 @@ There are currently the following settings:
 
 - `checkpath`
 - `killparent`
+- `ensure-assertions`
 
 <!-- shellmock-helptext-end -->
 
@@ -429,7 +430,7 @@ However, the tested code can still make modifications to its `PATH`, which could
 cause Shellmock's mocks to not be called.
 Thus, every call to the `shellmock` command will check whether the `PATH`
 variable has been changed since Shellmock was loaded via `load shellmock`.
-An error will be written to standard error in case such a change is detected.
+A warning will be written to standard error in case such a change is detected.
 
 The default value is 1.
 Use `shellmock global-config setval checkpath 0` to disable.
@@ -466,6 +467,44 @@ not be executed.
 The default value is 1.
 Use `shellmock global-config setval killparent 0` to disable.
 Use `shellmock global-config getval killparent` to retrieve the current setting.
+
+#### ensure-assertions
+
+When creating and configuring a mock using Shellmock, you have to make sure to
+assert that your configured mock has been used as expected via the `shellmock
+assert` command.
+Otherwise, you might not detect unexpected calls to your mock, or even the fact
+that your mock has not even been used!
+By default, Shellmock will fail a test that creates a mock without also running
+corresponding assertions.
+Take the following test as an example:
+
+```bash
+@test "without asserting expectations" {
+  shellmock new curl
+  shellmock config curl 0
+  # Not calling the curl mock here deliberately.
+}
+```
+
+Without the `ensure-assertions` feature, the above test would succeed even
+though the mock for `curl` had not even been called.
+With the `ensure-assertions` feature enabled, which is the default, you will
+receive an error output like this (some line breaks added to make it easier to
+read):
+
+```
+ ✗ without asserting expectations
+     `@test "without asserting expectations" {' failed
+   ERROR: expectations for mock curl have not been asserted.
+     Consider adding 'shellmock assert expectations curl' to
+     the following test: without asserting expectations
+```
+
+The default value is 1.
+Use `shellmock global-config setval ensure-assertions 0` to disable.
+Use `shellmock global-config getval ensure-assertions` to retrieve the current
+setting.
 
 ### calls
 

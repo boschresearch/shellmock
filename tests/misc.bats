@@ -24,6 +24,7 @@ setup_file() {
 
 setup() {
   load ../shellmock
+  shellmock global-config setval ensure-assertions 0
 }
 
 @test "incorrect argspecs fail the configuration" {

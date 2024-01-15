@@ -66,29 +66,35 @@ jobs:
           chmod +x shfmt
           sudo mv shfmt /usr/local/bin/shfmt
 
-      - name: Install prettier
+      - name: Install NVM
         run: |
-          curl -sSfL -o install_nvm.sh https://raw.githubusercontent.com/nvm-sh/nvm/${NVM_VERSION}/install.sh
+          curl -sSfL -o install_nvm.sh "${BASE_URL}/${NVM_VERSION}/install.sh"
           echo "${NVMINSTALL_SHA256} install_nvm.sh" | sha256sum --check
           bash install_nvm.sh
-          source "${HOME}/.nvm/nvm.sh"
-          nvm install "${NODE_VERSION}"
-          dirname "$(which npm)" >> "${GITHUB_PATH}"
-          npm install -g prettier
         env:
-          NODE_VERSION: "20"
           NVM_VERSION: v0.39.5
           NVMINSTALL_SHA256: 69da4f89f430cd5d6e591c2ccfa2e9e3ad55564ba60f651f00da85e04010c640
+          BASE_URL: "https://raw.githubusercontent.com/nvm-sh/nvm"
+
+      - name: Install prettier
+        run: |
+          source "${HOME}/.nvm/nvm.sh"
+          nvm install "${NODE_VERSION}"
+          npm install -g prettier
+          dirname "$(which prettier)" >> "${GITHUB_PATH}"
+        env:
+          NODE_VERSION: "20"
 
       - name: Install mdslw
         run: |
-          curl -sSfL -o mdslw https://github.com/razziel89/mdslw/releases/download/${MDSLW_VERSION}/mdslw_x86_64-unknown-linux-musl
+          curl -sSfL -o mdslw "${BASE_URL}/${MDSLW_VERSION}/mdslw_x86_64-unknown-linux-musl"
           echo "${MDSLW_SHA256} mdslw" | sha256sum --check
           chmod +x mdslw
           sudo mv mdslw /usr/local/bin
         env:
-          MDSLW_VERSION: 0.5.5
-          MDSLW_SHA256: 04d944b8e9596b82b7511c29bbf5ff10ab3ca707772d6a3164acb087a7e3f02e
+          MDSLW_VERSION: 0.6.1
+          MDSLW_SHA256: 20814371ec7c1801b995aa2e506a71ea1a3b23a4affa977ca75b02ad3dd5c562
+          BASE_URL: "https://github.com/razziel89/mdslw/releases/download"
 
       - uses: actions/checkout@v3
         with:

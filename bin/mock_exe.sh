@@ -140,12 +140,37 @@ _match_spec() {
   done < <(base64 --decode <<< "${full_spec}") && wait $!
 }
 
+# Check whether the given process is a bats process. A bats process is a bash
+# process with a script located in bats's libexec directory. If we are not
+# being executed by bats at all, we consider all processes to be non-bats.
+_is_bats_process() {
+  local process="$1"
+  if [[ -z ${BATS_LIBEXEC-} ]]; then
+    # Not using bats, process cannot be a bats one.
+    return 1
+  fi
+
+  local cmd_w_args
+  mapfile -t -d $'\0' cmd_w_args < "/proc/${process}/cmdline"
+  # The first entry in cmd_w_args would be "bash" and the second one the bats
+  # script if our parent process were a bats process. Such a bats script is in
+  # bats's libexec directory.
+  [[ ${#cmd_w_args[@]} -ge 2 ]] \
+    && [[ ${cmd_w_args[0]} == "bash" &&
+      ${cmd_w_args[1]} == "${BATS_LIBEXEC%%/}/"* ]]
+}
+
 _kill_parent() {
   local parent="$1"
 
-  if [[ ${__SHELLMOCK__KILLPARENT-} -ne 1 ]]; then
-    return
+  # Do not kill the parent process if it is a bats process. If we did, bats
+  # would no longer be able to track the test.
+  if
+    [[ ${__SHELLMOCK__KILLPARENT-} -ne 1 ]] || _is_bats_process "${parent}"
+  then
+    return 0
   fi
+
   errecho "Killing parent process with information:"
   # In case the `ps` command fails (e.g. because we mock it), don't fail this
   # mock.
@@ -156,8 +181,10 @@ _kill_parent() {
 find_matching_argspec() {
   # Find arg specs for this command and determine whether a specification
   # matches.
-  local cmd_b32="${1}"
-  shift
+  local outdir="${1}"
+  local cmd="${2}"
+  local cmd_b32="${3}"
+  shift 3
 
   local env_var
   while read -r env_var; do
@@ -172,7 +199,7 @@ find_matching_argspec() {
       | grep -x "MOCK_ARGSPEC_BASE64_${cmd_b32}_[0-9][0-9]*" | sort -u
   ) && wait $!
 
-  errecho "SHELLMOCK: unexpected call to '$0 $*'"
+  errecho "SHELLMOCK: unexpected call '${cmd} $*'"
   _kill_parent "${PPID}"
   return 1
 }
@@ -203,8 +230,9 @@ main() {
   env_var_check
   # Determine our name. This assumes that the first value in argv is the name of
   # the command. This is almost always so.
-  local cmd_b32
-  cmd_b32="$(basename "$0" | base32 -w0 | tr "=" "_")"
+  local cmd cmd_b32 args
+  cmd="$(basename "$0")"
+  cmd_b32="$(base32 -w0 <<< "${cmd}" | tr "=" "_")"
   local outdir
   outdir="$(get_and_ensure_outdir "${cmd_b32}")"
   declare -g STDERR="${outdir}/stderr"
@@ -214,7 +242,7 @@ main() {
   # associated information to stdout and exit with the associated exit code. If
   # it cannot be found, either exit with an error or kill the parent process.
   local cmd_spec
-  cmd_spec="$(find_matching_argspec "${cmd_b32}" "$@")"
+  cmd_spec="$(find_matching_argspec "${outdir}" "${cmd}" "${cmd_b32}" "$@")"
   provide_output "${cmd_spec}"
   return_with_code "${cmd_spec}"
 }

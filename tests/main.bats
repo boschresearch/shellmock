@@ -31,6 +31,7 @@ setup_file() {
 setup() {
   #shellcheck disable=SC2317
   load ../shellmock
+  shellmock global-config setval ensure-assertions 0
 }
 
 @test "we can mock an executable" {
@@ -180,7 +181,7 @@ setup() {
   # stderr, which means we have to redirect to stdout to capture it.
   report="$(shellmock assert expectations my_exe 2>&1 || :)"
 
-  grep "^SHELLMOCK: unexpected call to '.*my_exe asdf'" <<< "${report}"
+  grep "^SHELLMOCK: unexpected call 'my_exe asdf'" <<< "${report}"
   grep -x "SHELLMOCK: got at least one unexpected call for .*my_exe\." <<< "${report}"
 }
 

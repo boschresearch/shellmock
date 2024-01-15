@@ -19,20 +19,24 @@
 # The global-config command that can be used to get and set some global options.
 __shellmock__global-config() {
   __shellmock_internal_pathcheck
+  __shellmock_internal_trapcheck
 
   local subcmd="$1"
   local arg="$2"
   local val="${3-}"
 
+  local replacement="${arg//-/_}"
+  replacement="${replacement^^}"
+
   case ${subcmd} in
   setval)
     case ${arg} in
-    checkpath | killparent)
+    checkpath | killparent | ensure-assertions)
       if [[ -z ${val-} ]]; then
         echo >&2 "Value argument to setval must not be empty."
         return 1
       fi
-      local varname="__SHELLMOCK__${arg^^}"
+      local varname="__SHELLMOCK__${replacement}"
       declare -gx "${varname}=${val}"
       ;;
     *)
@@ -43,8 +47,8 @@ __shellmock__global-config() {
     ;;
   getval)
     case ${arg} in
-    checkpath | killparent)
-      local varname="__SHELLMOCK__${arg^^}"
+    checkpath | killparent | ensure-assertions)
+      local varname="__SHELLMOCK__${replacement}"
       echo "${!varname}"
       ;;
     *)

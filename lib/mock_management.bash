@@ -20,6 +20,7 @@
 # or they could not be mocked with executables.
 __shellmock__new() {
   __shellmock_internal_pathcheck
+  __shellmock_internal_trapcheck
 
   local cmd="$1"
 
@@ -64,6 +65,7 @@ __shellmock_assert_no_duplicate_argspecs() {
 # code, as well as the desired argspecs.
 __shellmock__config() {
   __shellmock_internal_pathcheck
+  __shellmock_internal_trapcheck
 
   # Fake output is read from stdin.
   local cmd="$1"
@@ -152,6 +154,7 @@ __shellmock__config() {
 # Assert whether the configured mocks have been called as expected.
 __shellmock__assert() {
   __shellmock_internal_pathcheck
+  __shellmock_internal_trapcheck
 
   local assert_type="$1"
   local cmd="$2"
@@ -163,6 +166,8 @@ __shellmock__assert() {
     echo >&2 "Cannot assert on mock '${cmd}', create mock first."
     return 1
   fi
+
+  touch "${__SHELLMOCK_EXPECTATIONS_DIR}/${cmd}"
 
   case "${assert_type}" in
   # Make sure that no calls were issued to the mock that we did not expect. By
@@ -201,7 +206,7 @@ __shellmock__assert() {
     mapfile -t actual_argspecs < <(
       if [[ -d "${__SHELLMOCK_OUTPUT}/${cmd_b32}" ]]; then
         find "${__SHELLMOCK_OUTPUT}/${cmd_b32}" -mindepth 2 -type f \
-          -name argspec -print0 | xargs -0 cat | sort -u
+          -name argspec -print0 | xargs -r -0 cat | sort -u
       fi
     ) && wait $!
 
@@ -269,6 +274,7 @@ __shellmock_jsonify_array() {
 
 __shellmock__calls() {
   __shellmock_internal_pathcheck
+  __shellmock_internal_trapcheck
 
   local cmd="$1"
   local format="${2-"--plain"}"
