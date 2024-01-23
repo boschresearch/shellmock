@@ -14,7 +14,11 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 
+ifndef TEST_SHELL
 SHELL := /bin/bash -euo pipefail
+else
+SHELL := $(TEST_SHELL)
+endif
 
 default: build
 
@@ -36,9 +40,16 @@ lint:
 	shellcheck ./bin/* ./lib/* ./tests/*
 	$(MAKE) check-format
 
+# Run tests under all possible combinations of some shell options.
 .PHONY: test
 test: build
-	bats --print-output-on-failure ./tests/*.bats
+	for opts in {-e,+e}{-u,+u}{-o,+o}; do \
+		TEST_OPTS="$$(sed 's/+/ +/g;s/-/ -/g;s/o/o pipefail/g' <<< "$${opts}")" && \
+		export TEST_OPTS && \
+		echo >&2 "Testing $${BASH_VERSION} with shell options $${TEST_OPTS}" && \
+		bats --jobs "$$(nproc --all)" --print-output-on-failure ./tests/*.bats \
+		|| exit 1; \
+	done
 
 DOWNLOAD_URL_PREFIX := https://mirror.kumi.systems/gnu/bash/
 
@@ -51,7 +62,13 @@ build-bash-version:
 	tar -xvzf bash.tar.gz && \
 	cd "bash-$(BASH_VERSION)" && \
 	./configure && \
-	make && \
+	attempt=0 && while [[ "$${attempt}" -lt 3 ]]; do \
+		make --jobs "$$(nproc --all)" && break; \
+		attempt=$$((attempt+1)); \
+	done && \
+	if ! [[ "$${attempt}" -lt 3 ]]; then \
+		echo "Failed to build $(BASH_VERSION)"; exit 1; \
+	fi && \
 	mv bash "$(BASH_PATH)"
 
 .PHONY: test-bash-version
@@ -60,8 +77,8 @@ test-bash-version:
 	tmp=$$(mktemp -d) && trap "rm -rf '$${tmp}'" EXIT && \
 	$(MAKE) build-bash-version BASH_PATH="$${tmp}" && \
 	export PATH="$${tmp}:$${PATH}" && \
-	echo "INFO: using $$(which bash) @ $$(bash -c 'echo $${BASH_VERSION}')" && \
-	bats --print-output-on-failure ./tests/*.bats
+	echo >&2 "INFO: using $$(which bash) @ $$(bash -c 'echo $${BASH_VERSION}')" && \
+	$(MAKE) test TEST_SHELL="$$(which bash)"
 
 SUPPORTED_VERSIONS := 5.2 5.1 5.0 4.4
 
@@ -69,15 +86,8 @@ SUPPORTED_VERSIONS := 5.2 5.1 5.0 4.4
 test-bash-versions: build
 	rm -f .failed .bash-*_test.log
 	for version in $(SUPPORTED_VERSIONS); do \
-		$(MAKE) test-bash-version BASH_VERSION="$${version}" 2>&1 \
-		| tee ".bash-$${version}_test.log" \
-		|| echo "$${version}" >> .failed & \
-	done; \
-	wait
-	if [[ -s .failed ]]; then \
-		echo "Failed versions: $$(sort .failed | tr -s '[:space:]' ' ')"; \
-	fi
-	[[ ! -s .failed ]]
+		$(MAKE) test-bash-version BASH_VERSION="$${version}" || exit 1; \
+	done
 
 COVERAGE_FAILED_MESSAGE := \
 	Cannot generate coverage reports as root user because kcov is not \
@@ -114,13 +124,14 @@ coverage: test
 	  }' < <(jq < $$(ls -d1 .coverage/bats.*/coverage.json) | sed 's/,$$//')
 
 format:
-	shfmt -w -bn -i 2 -sr -ln bash ./bin/* ./lib/*
-	shfmt -w -bn -i 2 -sr -ln bats ./tests/*
+	shfmt -w -s -bn -i 2 -sr -ln bash ./bin/* ./lib/*
+	shfmt -w -s -bn -i 2 -sr -ln bats ./tests/*
 	mdslw --mode=format --upstream="prettier --parser=markdown" .
+	shellcheck --format=diff bin/* lib/* tests/* | git apply --allow-empty
 
 check-format:
-	shfmt -d -bn -i 2 -sr -ln bash ./bin/* ./lib/*
-	shfmt -d -bn -i 2 -sr -ln bats ./tests/*
+	shfmt -d -s -bn -i 2 -sr -ln bash ./bin/* ./lib/*
+	shfmt -d -s -bn -i 2 -sr -ln bats ./tests/*
 	mdslw --mode=check --upstream="prettier --parser=markdown" .
 
 build:

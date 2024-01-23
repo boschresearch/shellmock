@@ -29,9 +29,9 @@ That script could look like this:
 ```bash
 #!/bin/bash
 # Read argument to script.
-branch_name="$1"
+branch_name="${1-}"
 # Ensure the argument is non-empty.
-if [[ -z ${branch_name} ]]; then
+if [[ -z "${branch_name}" ]]; then
   echo "Empty argument received." >&2
   # This command always exits with an error. It's the last one executed and,
   # thus, its exit code will be the one of this script. It is important not to

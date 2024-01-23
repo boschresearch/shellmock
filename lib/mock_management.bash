@@ -212,8 +212,10 @@ __shellmock__assert() {
 
     declare -a expected_argspecs
     mapfile -t expected_argspecs < <(
+      # Ignore grep's exit code, which is relevant with the "pipefail" option.
+      # The case of no matches is OK here.
       env | sed 's/=.*$//' \
-        | grep -x "MOCK_ARGSPEC_BASE64_${cmd_b32}_[0-9][0-9]*" \
+        | { grep -x "MOCK_ARGSPEC_BASE64_${cmd_b32}_[0-9][0-9]*" || :; } \
         | sort -u
     ) && wait $!
 

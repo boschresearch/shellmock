@@ -24,6 +24,8 @@ setup_file() {
 
 setup() {
   load ../shellmock
+  # shellcheck disable=SC2086 # We want to perform word splitting here.
+  set ${TEST_OPTS-"--"}
 }
 
 @test "auto-detection of forgotten assertions" {

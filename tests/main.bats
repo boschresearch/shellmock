@@ -32,6 +32,8 @@ setup() {
   #shellcheck disable=SC2317
   load ../shellmock
   shellmock global-config setval ensure-assertions 0
+  # shellcheck disable=SC2086 # We want to perform word splitting here.
+  set ${TEST_OPTS-"--"}
 }
 
 @test "we can mock an executable" {

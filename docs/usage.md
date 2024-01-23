@@ -116,7 +116,7 @@ Everything read from standard input will be echoed by the mock to its standard
 output verbatim.
 There is no way to have the mock write something to standard error.
 
-** Example**:
+**Example**:
 A call to `git branch` that
 
 - returns with exit code `0`, indicating success,
@@ -155,7 +155,7 @@ Argspec sets as defined via `config` are matched in order of definition.
 The first one found that matches the given arguments will be used by the mock
 executable.
 
-** Example**:
+**Example**:
 Catch-all mock configuration
 
 ```bash
@@ -203,7 +203,7 @@ This argspec matches if the argument at position `n` has exactly the value
 Argument counting starts at 1.
 Arguments at undefined positions can be anything.
 
-** Example**:
+**Example**:
 Only specified argspecs matter
 
 ```bash
@@ -222,7 +222,7 @@ git diff develop main
 While the order of numeric argspecs has no influence, we recommend to define
 numeric argspecs in ascending order.
 
-** Example**:
+**Example**:
 Numeric argspec order
 
 ```bash
@@ -240,7 +240,7 @@ argspec increased by 1.
 If the first argspec uses the `i` placeholder, it will be replaced by `1`.
 Numeric and incremental position indicators can be mixed.
 
-** Example**:
+**Example**:
 Incremental argspec
 
 ```bash
@@ -263,7 +263,7 @@ Thus, if we did not care at which position the `branch` keyword were in the
 first example, we could use:
 `any:branch`.
 
-** Example**:
+**Example**:
 Position-independent argspec
 
 ```bash
@@ -278,7 +278,7 @@ git diff develop main
 You can combine position-independent and position-dependent argspecs.
 Note that the position indicator `i` cannot directly follow `any`.
 
-** Example**:
+**Example**:
 Combining position-independent and dependent argspecs
 
 ```bash
@@ -293,7 +293,7 @@ Note that the flexible position independent argspec matches any position.
 That is, even if it precedes a numeric argspec, it can still match later
 arguments.
 
-** Example**:
+**Example**:
 Flexible argspecs match anywhere
 
 ```bash
@@ -315,7 +315,7 @@ You _cannot_ combine it with the flexible position indicator `i`, though.
 With such an argspec, `value` will be re-interpreted as a _bash regular
 expression_ matched via the comparison `[[ ${argument} =~ ${value} ]]`.
 
-** Example**:
+**Example**:
 Regex-based argspecs
 
 ```bash
@@ -338,7 +338,7 @@ It is very easy to input a character that is interpreted as a special one
 without realizing that.
 You can, of course, combine string and regex based argspecs.
 
-** Example**:
+**Example**:
 Combining string-based and regex-based argspecs
 
 ```bash
@@ -347,6 +347,54 @@ shellmock config git 0 1:checkout regex-any:^feature
 # Would match the following commands, for example:
 git checkout feature/foobar
 git checkout -b feature/barbaz master
+```
+
+#### Multi-Line Mock Output
+
+When called, a mock will write to standard output any text that was read from
+standard input when running `shellmock config [...]`.
+Note that escape sequences such as `\n` are not interpreted in strings by
+default.
+That means a string such as `"first\nsecond\n"` will be output on a single line
+instead of two on lines.
+
+**Example**:
+
+```bash
+shellmock new git
+shellmock config git 0 1:tag 2:--list <<< "first\nsecond\n"
+git tag --list
+
+# The output will be as follows on a single line:
+first\nsecond\n
+```
+
+There are three recommended ways for defining multi-line output, namely
+
+- adding literal line breaks to the string, or
+- using a here-document, or
+- [having bash interpret escape sequences][bash-ansi-escape] using a
+  character sequence of the form `$'string'`.
+
+[bash-ansi-escape]: https://www.gnu.org/software/bash/manual/html_node/ANSI_002dC-Quoting.html#ANSI_002dC-Quoting
+
+**Example**:
+
+```bash
+# Configuring a mock with multi-line output using literal newline characters.
+shellmock config git 0 1:tag <<< "first
+second
+"
+
+# Configuring a mock with multi-line output using a here document.
+shellmock config git 0 1:tag << EOF
+first
+second
+EOF
+
+# Configuring a mock with multi-line output by having bash interpret escape
+# sequences. This is most useful in case the total string is not long.
+shellmock config git 0 1:tag 2:--list <<< $'first\nsecond\n'
 ```
 
 ### assert
@@ -364,7 +412,7 @@ We recommend to always use `expectations` as assertion type.
 
 <!-- shellmock-helptext-end -->
 
-** Example**:
+**Example**:
 Asserting expectations
 
 ```bash
@@ -557,13 +605,13 @@ The output would be:
 name:       git
 id:         1
 args:       branch -l
-stdin:      
+stdin:
 suggestion: shellmock config git 0 1:branch 2:-l
 
 name:       git
 id:         2
 args:       checkout -b new-branch
-stdin:      
+stdin:
 suggestion: shellmock config git 0 1:checkout 2:-b 3:new-branch
 
 name:       git
@@ -575,7 +623,7 @@ suggestion: shellmock config git 0 1:branch 2:-l <<< null
 name:       git
 id:         4
 args:       branch -d new-branch
-stdin:      
+stdin:
 suggestion: shellmock config git 0 1:branch 2:-d 3:new-branch
 ```
 <!-- prettier-ignore-end -->

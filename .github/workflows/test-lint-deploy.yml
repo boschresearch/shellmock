@@ -30,7 +30,7 @@ concurrency:
 
 jobs:
   build-deploy:
-    timeout-minutes: 8
+    timeout-minutes: 30
 
     runs-on: ubuntu-22.04
 
@@ -42,7 +42,7 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -qqy --no-install-recommends \
             build-essential ca-certificates coreutils curl gawk gcc git jq \
-            kcov make shellcheck
+            kcov make parallel shellcheck
 
       - name: Install bats
         run: |

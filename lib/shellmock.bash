@@ -89,7 +89,7 @@ __shellmock_internal_init() {
 }
 
 __shellmock_internal_bash_version_check() {
-  if [[ -z ${BASH_VERSION} ]]; then
+  if [[ -z ${BASH_VERSION-} ]]; then
     echo >&2 "Shellmock requires bash but different shell detected."
     return 1
   fi

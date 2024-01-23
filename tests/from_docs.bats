@@ -26,13 +26,15 @@ setup() {
   # automatically.
   load ../shellmock
   script=script
+  # shellcheck disable=SC2086 # We want to perform word splitting here.
+  set ${TEST_OPTS-"--"}
 }
 
 # We replace the script with a function to have a self-contained example.
 script() {
   #!/bin/bash
   # Read argument to script.
-  branch_name="$1"
+  branch_name="${1-}"
   # Ensure the argument is non-empty.
   if [[ -z ${branch_name} ]]; then
     echo "Empty argument received." >&2

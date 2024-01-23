@@ -25,6 +25,8 @@ setup_file() {
 setup() {
   load ../shellmock
   shellmock global-config setval ensure-assertions 0
+  # shellcheck disable=SC2086 # We want to perform word splitting here.
+  set ${TEST_OPTS-"--"}
 }
 
 @test "incorrect argspecs fail the configuration" {
@@ -126,4 +128,9 @@ setup() {
   [[ ${status} -eq 0 ]]
   [[ -z ${output} ]]
   [[ ${stderr} == "I write to stderr." ]]
+}
+
+@test "expectations can be asserted when defining a mock but not configuring" {
+  shellmock new some_executable
+  shellmock assert expectations some_executable
 }
