@@ -21,8 +21,7 @@
 This example first presents a script that shall then be tested using [bats-core]
 and `shellmock`.
 
-Assume a very simple shell script that checks out a `git` branch
-indiscriminately.
+Assume a shell script of medium complexity that checks out a `git` branch.
 If the branch does not yet exist, the script creates it first.
 That script could look like this:
 
@@ -33,9 +32,9 @@ branch_name="${1-}"
 # Ensure the argument is non-empty.
 if [[ -z "${branch_name}" ]]; then
   echo "Empty argument received." >&2
-  # This command always exits with an error. It's the last one executed and,
-  # thus, its exit code will be the one of this script. It is important not to
-  # call the "exit" command in scripts that should be easy to test.
+  # The "false" command always exits with an error. It's the last one executed
+  # and, thus, its exit code will be the one of this script. It is important not
+  # to call the "exit" command in scripts that should be easy to test.
   false
 else
   # Check whether the branch exists.
@@ -101,8 +100,8 @@ setup() {
   # path to your executable script.
   run "${script}" some_branch
   # Now assert that the calls you expected have indeed happened. If there had
-  # been an unexpected call, e.g. to " git branch", this line would error out
-  # and report the problem.
+  # been an unexpected call, e.g. to " git branch", or if one of the configured
+  # calls hadn't happened, this line would error out and report the problem.
   shellmock assert expectations git
   # Assert on the exit code.
   [[ ${status} -eq 0 ]]
@@ -134,6 +133,9 @@ setup() {
   # Shadow the original git executable by a mock. This is just to make sure we
   # do not call the actual git executable by accident.
   shellmock new git
+  # Note that we do not run the command "shellmock config" here. That means that
+  # the mock does not expect to be called at all. Any call to the mock would be
+  # considered an error when asserting expectations below.
   run "${script}"
   shellmock assert expectations git
   # Assert on the exit code. We expect a non-zero exit code.

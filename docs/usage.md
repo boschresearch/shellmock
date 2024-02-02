@@ -61,6 +61,25 @@ It is implemented as a shell function with the following sub-commands:
 <!-- shellmock-helptext-end -->
 
 The more complex sub-commands will be described below in detail.
+You can jump to the respective section via the following links.
+
+- [new](#new)
+- [config](#config)
+  - [argspec Interpretation](#argspec-interpretation)
+  - [argspec Definitions](#argspec-definitions)
+    - [Numeric Position-Dependent argspec](#numeric-position-dependent-argspec)
+    - [Incremental Position-Dependent argspec](#incremental-position-dependent-argspec)
+    - [Flexible Position-Independent argspec](#flexible-position-independent-argspec)
+  - [Regex-Based argspec](#regex-based-argspec)
+  - [Multi-Line Mock Output](#multi-line-mock-output)
+- [assert](#assert)
+  - [Assertion Types](#assertion-types)
+- [global-config](#global-config)
+  - [checkpath](#checkpath)
+  - [killparent](#killparent)
+  - [ensure-assertions](#ensure-assertions)
+- [calls](#calls)
+  - [Example](#example)
 
 ### new
 
