@@ -111,7 +111,7 @@ from that point forward, assuming no code changes `PATH`.
 <!-- shellmock-helptext-start -->
 
 Syntax:
-`shellmock config <name> <exit_code> [1:<argspec> [...]]`
+`shellmock config <name> <exit_code> [hook:<hook-function>] [1:<argspec> [...]]`
 
 The `config` command defines expectations for calls to your mocked executable.
 You need to define expectations before you can make assertions on your mock.
@@ -126,6 +126,15 @@ The `config` command takes at least two arguments:
 1. the `name` of the mock you wish you define expectations for, and
 2. the mock's `exit_code` for invocations matching the expectations configured
    with this call.
+
+Next, you may optionally specify the name of a `bash` function that the mock
+will execute immediately before exiting.
+The function will be exported automatically.
+Any error calling the hook will be considered an error (also see
+[killparent](#killparent)).
+A hook can be used to perform additional assertions or record additional data.
+Since the hook function is run in a sub-process, it cannot modify any shell
+variables and has access only to environment variables.
 
 Every following argument to the `config` command is a so-called `argspec` (see
 below).

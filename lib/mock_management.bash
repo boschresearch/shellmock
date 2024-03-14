@@ -74,6 +74,18 @@ __shellmock__config() {
   local rc="$2"
   shift 2
 
+  # If a hook has been set, check whether it is a function and export it.
+  local hook
+  if [[ ${1-} == "hook:"* ]]; then
+    hook="${1##hook:}"
+    shift
+    if [[ $(type -t "${hook}") != function ]]; then
+      echo >&2 "Requested hook function '${hook}' does not exist."
+      return 1
+    fi
+    export -f "${hook?}"
+  fi
+
   # Validate input format.
   local args=()
   local has_err=0
@@ -149,6 +161,12 @@ __shellmock__config() {
   fi
   env_var_name="MOCK_OUTPUT_BASE64_${cmd_b32}_${count}"
   declare -gx "${env_var_name}=${env_var_val}"
+
+  # Handle hook.
+  if [[ -n ${hook-} ]]; then
+    env_var_name="MOCK_HOOKFN_${cmd_b32}_${count}"
+    declare -gx "${env_var_name}=${hook}"
+  fi
 }
 
 # Assert whether the configured mocks have been called as expected.
@@ -250,8 +268,10 @@ __shellmock_jsonify_string() {
   local val=$1
   # shellcheck disable=SC1003
   val=${val//'\'/'\\'} # Escape all backslashes with a backslash.
-  val=${val//'/'/'\/'} # Escape all forward slashes with a backslash.
-  val=${val//'"'/'\"'} # Escape all double quotes with a backslash.
+  local _S='/'
+  local _ES='\/'
+  val=${val//"${_S}"/"${_ES}"} # Escape all forward slashes with a backslash.
+  val=${val//'"'/'\"'}         # Escape all double quotes with a backslash.
   echo "${val}"
 }
 

@@ -209,8 +209,30 @@ provide_output() {
   # Base64 encoding is an easy way to be able to store arbitrary data in
   # environment variables.
   output_base64="MOCK_OUTPUT_BASE64_${cmd_spec}"
-  if [[ -n ${!output_base64} ]]; then
+  if [[ -n ${!output_base64-} ]]; then
     base64 --decode <<< "${!output_base64}"
+  fi
+}
+
+run_hook() {
+  local cmd_spec="$1"
+  # If a hook function was specified, run it. It has to be exported for this to
+  # work.
+  local hook_env_var
+  hook_env_var="MOCK_HOOKFN_${cmd_spec}"
+  if
+    [[ -n ${!hook_env_var-} ]] \
+      && [[ $(type -t "${!hook_env_var-}") == function ]]
+  then
+    # Run hook in sub-shell to reduce its influence on the mock.
+    if ! ("${!hook_env_var}"); then
+      # Not using errecho because we want this to always show up in the test's
+      # output. Anything output via errecho will end up in a file that is only
+      # looked at when asserting expectations.
+      echo >&2 "SHELLMOCK: error calling hook '${!hook_env_var}'"
+      _kill_parent "${PPID}"
+      return 1
+    fi
   fi
 }
 
@@ -220,7 +242,7 @@ return_with_code() {
   # with success.
   local rc_env_var
   rc_env_var="MOCK_RC_${cmd_spec}"
-  if [[ -n ${!rc_env_var} ]]; then
+  if [[ -n ${!rc_env_var-} ]]; then
     return "${!rc_env_var}"
   fi
   return 0
@@ -244,6 +266,7 @@ main() {
   local cmd_spec
   cmd_spec="$(find_matching_argspec "${outdir}" "${cmd}" "${cmd_b32}" "$@")"
   provide_output "${cmd_spec}"
+  run_hook "${cmd_spec}"
   return_with_code "${cmd_spec}"
 }
 

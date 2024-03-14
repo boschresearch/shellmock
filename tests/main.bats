@@ -500,3 +500,35 @@ indices, cannot continue: 1 2 "
     grep -x "${expected}" <<< "${output}"
   fi
 }
+
+@test "hook recording working directory" {
+  shellmock new my_exe
+  _hook_dir_record() {
+    pwd > "${BATS_TEST_TMPDIR}/dir_record"
+  }
+  shellmock config my_exe 0 hook:_hook_dir_record
+
+  expected_dir="${BATS_TEST_TMPDIR}/directory"
+  mkdir -p "${expected_dir}"
+  (cd "${expected_dir}" && my_exe)
+
+  actual_dir=$(cat "${BATS_TEST_TMPDIR}/dir_record")
+  [[ ${actual_dir} == "${BATS_TEST_TMPDIR}/directory" ]]
+}
+
+@test "hook failing the mock" {
+  shellmock new my_exe
+  _hook_fails() {
+    return 1
+  }
+  shellmock config my_exe 0 hook:_hook_fails
+
+  run ! my_exe
+
+  [[ ${output} == "SHELLMOCK: error calling hook '_hook_fails'" ]]
+}
+
+@test "rejecting missing hooks" {
+  shellmock new my_exe
+  run ! shellmock config my_exe 0 hook:_missing_hook
+}
