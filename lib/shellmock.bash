@@ -16,6 +16,17 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 
+__shellmock_mktemp() {
+  local has_bats=$1
+  local what=$2
+  local dir
+  dir=$(mktemp -d -p "${BATS_TEST_TMPDIR-${TMPDIR-/tmp}}")
+  if [[ ${has_bats} -eq 0 ]]; then
+    echo >&2 "Keeping ${what} in: ${dir}"
+  fi
+  echo "${dir}"
+}
+
 # Initialise shellmock, which includes setting up temporary directories either
 # as subdirectories of bats' temporary ones when run via bats, or global
 # temporary directories when run without bats. This function also modifies PATH
@@ -31,24 +42,26 @@ __shellmock_internal_init() {
   if [[ -z ${BATS_TEST_TMPDIR} ]]; then
     has_bats=0
   fi
-  # Modify PATH to permit injecting executables.
-  declare -gx __SHELLMOCK_MOCKBIN
-  __SHELLMOCK_MOCKBIN="$(mktemp -d -p "${BATS_TEST_TMPDIR-${TMPDIR-/tmp}}")"
-  export PATH="${__SHELLMOCK_MOCKBIN}:${PATH}"
-
-  declare -gx __SHELLMOCK_OUTPUT
-  __SHELLMOCK_OUTPUT="$(mktemp -d -p "${BATS_TEST_TMPDIR-${TMPDIR-/tmp}}")"
-
-  declare -gx __SHELLMOCK_EXPECTATIONS_DIR
-  __SHELLMOCK_EXPECTATIONS_DIR="$(
-    mktemp -d -p "${BATS_TEST_TMPDIR-${TMPDIR-/tmp}}"
-  )"
 
   if [[ ${has_bats} -eq 0 ]]; then
     echo >&2 "Running outside of bats, temporary directories will be kept."
-    echo >&2 "Keeping mocks in: ${__SHELLMOCK_MOCKBIN}"
-    echo >&2 "Keeping mock call data in: ${__SHELLMOCK_OUTPUT}"
   fi
+
+  # Modify PATH to permit injecting executables.
+  declare -gx __SHELLMOCK_MOCKBIN
+  __SHELLMOCK_MOCKBIN="$(__shellmock_mktemp "${has_bats}" "mocks")"
+  export PATH="${__SHELLMOCK_MOCKBIN}:${PATH}"
+
+  declare -gx __SHELLMOCK_OUTPUT
+  __SHELLMOCK_OUTPUT="$(__shellmock_mktemp "${has_bats}" "mock call data")"
+
+  declare -gx __SHELLMOCK_FUNCSTORE
+  __SHELLMOCK_FUNCSTORE="$(__shellmock_mktemp "${has_bats}" "mocked functions")"
+
+  declare -gx __SHELLMOCK_EXPECTATIONS_DIR
+  __SHELLMOCK_EXPECTATIONS_DIR="$(
+    __shellmock_mktemp "${has_bats}" "call records"
+  )"
 
   declare -gx __SHELLMOCK_PATH
   # Remember the value of "${PATH}" when shellmock was loaded, including the

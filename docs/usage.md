@@ -45,7 +45,7 @@ sure to replace `${PATH_TO_SHELLMOCK_LIBRARY}` appropriately.
 You can access all functionality of Shellmock via the `shellmock` command.
 It is implemented as a shell function with the following sub-commands:
 
-- `new`:
+- `new` / `mock`:
   Create a new mock for an executable.
 - `config`:
   Configure a previously-created mock by defining expectations.
@@ -55,6 +55,8 @@ It is implemented as a shell function with the following sub-commands:
   Configure global behaviour of Shellmock itself.
 - `calls`:
   Log past calls to mocks and suggest mock configs to reproduce.
+- `delete` / `unmock`:
+  Remove all mocks for an executable.
 - `help`:
   Provide a help text.
 
@@ -80,6 +82,7 @@ You can jump to the respective section via the following links.
   - [ensure-assertions](#ensure-assertions)
 - [calls](#calls)
   - [Example](#example)
+- [delete](#delete)
 
 ### new
 
@@ -91,6 +94,7 @@ Syntax:
 The `new` command creates a new mock executable called `name`.
 It is created in a directory in your `PATH` that is controlled by Shellmock.
 You need to create a mock before you can configure it or make assertions on it.
+The `mock` command is an alias for the `new` command.
 
 <!-- shellmock-helptext-end -->
 
@@ -111,7 +115,7 @@ from that point forward, assuming no code changes `PATH`.
 <!-- shellmock-helptext-start -->
 
 Syntax:
-`shellmock config <name> <exit_code> [hook:<hook-function>] [1:<argspec> [...]]`
+`shellmock config <name> [<exit_code>|forward] [hook:<hook-function>] [1:<argspec> [...]]`
 
 The `config` command defines expectations for calls to your mocked executable.
 You need to define expectations before you can make assertions on your mock.
@@ -125,7 +129,8 @@ The `config` command takes at least two arguments:
 
 1. the `name` of the mock you wish you define expectations for, and
 2. the mock's `exit_code` for invocations matching the expectations configured
-   with this call.
+   with this call or the literal string `forward`.
+   See [below](#forwarding-calls) for details on forwarding calls.
 
 Next, you may optionally specify the name of a `bash` function that the mock
 will execute immediately before exiting.
@@ -425,6 +430,44 @@ EOF
 shellmock config git 0 1:tag 2:--list <<< $'first\nsecond\n'
 ```
 
+### Forwarding Calls
+
+It can be desirable to mock only some calls to an executable.
+For example, you may want to mock only `POST` request sent via `curl` but `GET`
+requests should still be issued.
+Or you may want to mock all calls to `git push` while other commands should
+still be executed.
+
+You can forward specific calls to an executable by specifying the literal string
+`forward` as the second argument to the `config` command.
+Calls matching argspecs provided this way will be forwarded to the actual
+executable.
+
+**Example**:
+
+```bash
+# Initialising mock for curl.
+shellmock new curl
+# Mocking all POST requests, i.e. calls that have the literal string POST as
+# argument anywhere.
+shellmock config curl 0 any:POST <<< "my mock output"
+# Forwarding all GET requests, i.e. calls that have the literal string GET as
+# argument anywhere.
+shellmock config curl forward any:GET
+```
+
+**Example**:
+
+```bash
+# Initialising mock for git.
+shellmock new git
+# Mocking all push commands, i.e. calls that have the literal string push as
+# first argument.
+shellmock config git 0 1:push
+# Forwarding all other calls. Specific configurations have to go first.
+shellmock config git forward
+```
+
 ### assert
 
 <!-- shellmock-helptext-start -->
@@ -707,3 +750,29 @@ the output would be as follows instead:
 ]
 ```
 <!-- prettier-ignore-end -->
+
+### delete
+
+<!-- shellmock-helptext-start -->
+
+Syntax:
+`shellmock delete <name>`
+
+The `delete` command completely removes all mocks for `name`.
+Mock executables are removed from your `PATH` and environment variables used to
+configure the mock are removed.
+The `unmock` command is an alias for the `delete` command.
+
+<!-- shellmock-helptext-end -->
+
+The `delete` command takes exactly one argument:
+the name of the executable whose mocks shall be removed.
+For example:
+
+```bash
+shellmock delete git
+```
+
+This will remove the mock executable for `git`.
+It will also undo all mock configurations issued via `shellmock config git`.
+After unmocking, new mocks can be created for the very same executable.

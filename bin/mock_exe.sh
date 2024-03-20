@@ -30,10 +30,13 @@ set -euo pipefail
 
 # Check whether required environment variables are set.
 env_var_check() {
-  if ! [[ -d ${__SHELLMOCK_OUTPUT-} ]]; then
-    echo "Vairable __SHELLMOCK_OUTPUT not defined or no directory."
-    exit 1
-  fi
+  local var
+  for var in __SHELLMOCK_MOCKBIN __SHELLMOCK_FUNCSTORE __SHELLMOCK_OUTPUT; do
+    if ! [[ -d ${!var-} ]]; then
+      echo >&2 "Vairable ${var} not defined or no directory."
+      exit 1
+    fi
+  done
 }
 
 get_and_ensure_outdir() {
@@ -137,7 +140,7 @@ _match_spec() {
       errecho "Internal error, incorrect spec ${spec}"
       return 1
     fi
-  done < <(base64 --decode <<< "${full_spec}") && wait $!
+  done < <(base64 --decode <<< "${full_spec}") && wait $! || return 1
 }
 
 # Check whether the given process is a bats process. A bats process is a bash
@@ -196,8 +199,10 @@ find_matching_argspec() {
     fi
   done < <(
     env | sed 's/=.*$//' \
-      | grep -x "MOCK_ARGSPEC_BASE64_${cmd_b32}_[0-9][0-9]*" | sort -u
-  ) && wait $!
+      | {
+        grep -x "MOCK_ARGSPEC_BASE64_${cmd_b32}_[0-9][0-9]*" || :
+      } | sort -u
+  ) && wait $! || return 1
 
   errecho "SHELLMOCK: unexpected call '${cmd} $*'"
   _kill_parent "${PPID}"
@@ -248,7 +253,40 @@ return_with_code() {
   return 0
 }
 
+# Check whether this mock sould actually call the external executable instead of
+# providing mock output and exit code. If it should forward, the value of the
+# checked env var for this cmd_spec should be "forward".
+should_forward() {
+  local cmd_spec="$1"
+  local rc_env_var
+  rc_env_var="MOCK_RC_${cmd_spec}"
+  [[ -n ${!rc_env_var-} && ${!rc_env_var} == forward ]]
+}
+
+# Forward the arguments to the first executable in PATH that is not controlled
+# by shellmock, that is the first executable not in __SHELLMOCK_MOCKBIN. We can
+# also forward to functions that we stored, but those functions cannot access
+# shell variables of the surrounding shell.
+forward() {
+  local cmd=$1
+  shift
+  local args=("$@")
+
+  while read -r -d: path; do
+    if
+      [[ ${path} != "${__SHELLMOCK_MOCKBIN}" ]] \
+        && PATH="${path}" command -v "${cmd}" &> /dev/null
+    then
+      local exe="${path}/${cmd}"
+      echo >&2 "SHELLMOCK: forwarding call: ${exe} $*"
+      exec "${exe}" "${args[@]}"
+    fi
+  done <<< "${__SHELLMOCK_FUNCSTORE}:${PATH}"
+}
+
 main() {
+  # Make sure that shell aliases never interfere with this mock.
+  unalias -a
   env_var_check
   # Determine our name. This assumes that the first value in argv is the name of
   # the command. This is almost always so.
@@ -265,9 +303,13 @@ main() {
   # it cannot be found, either exit with an error or kill the parent process.
   local cmd_spec
   cmd_spec="$(find_matching_argspec "${outdir}" "${cmd}" "${cmd_b32}" "$@")"
-  provide_output "${cmd_spec}"
-  run_hook "${cmd_spec}"
-  return_with_code "${cmd_spec}"
+  if should_forward "${cmd_spec}"; then
+    forward "${cmd}" "$@"
+  else
+    provide_output "${cmd_spec}"
+    run_hook "${cmd_spec}"
+    return_with_code "${cmd_spec}"
+  fi
 }
 
 # Run if executed directly. If sourced from a bash shell, don't do anything,

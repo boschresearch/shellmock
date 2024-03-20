@@ -360,7 +360,6 @@ setup() {
   # Using "i" as location increases previous counter by 1, starting at 1 for the
   # first "i". But this one fails because "any" is not a suitable numeric base
   # for incrementing.
-  local stderr
   if stderr="$(
     shellmock config my_exe 0 any:muhaha i:asdf i:blub 2>&1 1> /dev/null
   )"; then
@@ -531,4 +530,132 @@ indices, cannot continue: 1 2 "
 @test "rejecting missing hooks" {
   shellmock new my_exe
   run ! shellmock config my_exe 0 hook:_missing_hook
+}
+
+@test "removing and re-creating a mock after creating one" {
+  # Not defined at first.
+  run ! my_exe
+
+  # Mocked and can be called.
+  shellmock new my_exe
+  shellmock config my_exe 1
+  run -1 my_exe
+  shellmock assert expectations my_exe
+
+  # Restore original state by deleting the mock config. The exe will no longer
+  # defined.
+  shellmock unmock my_exe
+  run ! my_exe
+
+  # Mocked again and can be called.
+  shellmock new my_exe
+  shellmock config my_exe 0 1:arg1
+  shellmock config my_exe 0 1:arg2
+  run -0 my_exe arg1
+  run -0 my_exe arg2
+  shellmock assert expectations my_exe
+}
+
+@test "removing and re-creating a function mock after creating one" {
+  _my_fn() {
+    echo >> "${BATS_TEST_TMPDIR}/called"
+    return 2
+  }
+  _my_fn_assert_called() {
+    local expected=$1
+    local actual
+    actual=$(wc -l < "${BATS_TEST_TMPDIR}/called")
+    [[ ${actual} -eq ${expected} ]]
+  }
+
+  run -2 _my_fn
+  _my_fn_assert_called 1
+
+  # Mocked and can be called.
+  shellmock new _my_fn
+  shellmock config _my_fn 1
+  run -1 _my_fn
+  shellmock assert expectations _my_fn
+  _my_fn_assert_called 1
+
+  # Restore original state, no longer defined. Restoring doesn't call it.
+  shellmock unmock _my_fn
+  _my_fn_assert_called 1
+  run -2 _my_fn
+  _my_fn_assert_called 2
+  [[ "$(type -t _my_fn)" == function ]]
+
+  # Mocked again and can be called.
+  shellmock new _my_fn
+  shellmock config _my_fn 0 1:arg1
+  shellmock config _my_fn 0 1:arg2
+  run -0 _my_fn arg1
+  run -0 _my_fn arg2
+  shellmock assert expectations _my_fn
+  _my_fn_assert_called 2
+}
+
+@test "forwarding some calls to actual executable" {
+  ls=$(command -v ls)
+  shellmock new ls
+  mkdir -p "${BATS_TEST_TMPDIR}/dir"
+  touch "${BATS_TEST_TMPDIR}/dir/file"
+  shellmock config ls forward 1:"${BATS_TEST_TMPDIR}/dir"
+
+  # Making the linter happy.
+  stderr=
+  # Calling actual executable.
+  run --separate-stderr -0 ls "${BATS_TEST_TMPDIR}/dir"
+  [[ ${output} == "file" ]]
+  shellmock assert expectations ls
+  [[ ${stderr} == *"SHELLMOCK: forwarding call: ${ls} ${BATS_TEST_TMPDIR}"* ]]
+}
+
+@test "mocking only some calls to an executable" {
+  shellmock new ls
+  # Configuring forwarding mock first because configs are checked in order.
+  shellmock config ls forward 1:--help
+  # Setting up catch-all mock.
+  shellmock config ls 2
+
+  # Calling actual executable.
+  run -0 ls --help
+  [[ -n ${output} ]]
+  # Mock has not yet been called.
+  run ! shellmock assert expectations ls
+  # Calling the mock.
+  run -2 ls
+  shellmock assert expectations ls
+}
+
+@test "forwarding some calls to a function" {
+  _forward_fn() {
+    echo "$*" > "${BATS_TEST_TMPDIR}/args"
+    echo >> "${BATS_TEST_TMPDIR}/called"
+    return 2
+  }
+  _forward_fn_assert_called() {
+    local expected=$1
+    local actual
+    actual=$(wc -l < "${BATS_TEST_TMPDIR}/called")
+    [[ ${actual} -eq ${expected} ]]
+  }
+
+  run -2 _forward_fn
+  _forward_fn_assert_called 1
+
+  shellmock new _forward_fn
+  shellmock config _forward_fn forward 1:arg
+  shellmock config _forward_fn 0
+
+  # Calling mock.
+  run -0 _forward_fn
+  _forward_fn_assert_called 1
+  # Calling actual function.
+  run -2 _forward_fn arg another_arg
+  _forward_fn_assert_called 2
+
+  shellmock assert expectations _forward_fn
+  # Check that the function receives arguments.
+  [[ $(cat "${BATS_TEST_TMPDIR}/args") == "arg another_arg" ]]
 }

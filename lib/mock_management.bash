@@ -26,12 +26,57 @@ __shellmock__new() {
 
   if [[ $(type -t "${cmd}") == function ]]; then
     # We are mocking a function, unset it or it will take precedence over our
-    # injected executable.
+    # injected executable. However, store the original function so that we could
+    # restore it.
+    __shellmock_internal_funcstore "${cmd}" > "${__SHELLMOCK_FUNCSTORE}/${cmd}"
+    chmod +x "${__SHELLMOCK_FUNCSTORE}/${cmd}"
     unset -f "${cmd}"
   fi
 
   __shellmock_write_mock_exe > "${__SHELLMOCK_MOCKBIN}/${cmd}"
   chmod +x "${__SHELLMOCK_MOCKBIN}/${cmd}"
+}
+
+# An alias for the "new" command.
+__shellmock__mock() {
+  __shellmock__new "$@"
+}
+
+__shellmock__unmock() {
+  __shellmock_internal_pathcheck
+  __shellmock_internal_trapcheck
+
+  local cmd="$1"
+  local cmd_b32
+  cmd_b32=$(base32 -w0 <<< "${cmd}" | tr "=" "_")
+
+  # Restore the function if we are mocking one.
+  local store="${__SHELLMOCK_FUNCSTORE}/${cmd}"
+  if [[ -f ${store} ]]; then
+    # shellcheck disable=SC1090
+    source "${store}"
+    rm "${store}"
+  fi
+
+  # In any case, remove the mock and unset all env vars defined for it. Mocks
+  # are identified by their argspecs or return codes. Thus, we only remove those
+  # env vars.
+  local env_var
+  while read -r env_var; do
+    unset "${env_var}"
+  done < <(
+    env | sed 's/=.*$//' \
+      | { grep -xE "^MOCK_(RC|ARGSPEC_BASE64)_${cmd_b32}_[0-9][0-9]*" || :; }
+  ) && wait $! || return 1
+
+  if [[ -f "${__SHELLMOCK_MOCKBIN}/${cmd}" ]]; then
+    rm "${__SHELLMOCK_MOCKBIN}/${cmd}"
+  fi
+}
+
+# An alias for the "unmock" command.
+__shellmock__delete() {
+  __shellmock__unmock "$@"
 }
 
 __shellmock_assert_no_duplicate_argspecs() {
@@ -209,7 +254,7 @@ __shellmock__assert() {
       fi
     done < <(
       find "${__SHELLMOCK_OUTPUT}/${cmd_b32}" -mindepth 2 -type f -name stderr
-    ) && wait $!
+    ) && wait $! || return 1
     if [[ ${has_err} -ne 0 ]]; then
       echo >&2 "SHELLMOCK: got at least one unexpected call for mock ${cmd}."
       return 1
@@ -226,7 +271,7 @@ __shellmock__assert() {
         find "${__SHELLMOCK_OUTPUT}/${cmd_b32}" -mindepth 2 -type f \
           -name argspec -print0 | xargs -r -0 cat | sort -u
       fi
-    ) && wait $!
+    ) && wait $! || return 1
 
     declare -a expected_argspecs
     mapfile -t expected_argspecs < <(
@@ -235,7 +280,7 @@ __shellmock__assert() {
       env | sed 's/=.*$//' \
         | { grep -x "MOCK_ARGSPEC_BASE64_${cmd_b32}_[0-9][0-9]*" || :; } \
         | sort -u
-    ) && wait $!
+    ) && wait $! || return 1
 
     local has_err=0
     for argspec in "${expected_argspecs[@]}"; do
@@ -317,7 +362,7 @@ __shellmock__calls() {
   readarray -d $'\n' -t call_ids < <(
     find "${__SHELLMOCK_OUTPUT}/${cmd_b32}" -mindepth 1 -maxdepth 1 -type d \
       | sort -n
-  ) && wait $!
+  ) && wait $! || return 1
 
   for call_idx in "${!call_ids[@]}"; do
     local call_id="${call_ids[${call_idx}]}"
