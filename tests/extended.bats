@@ -23,6 +23,7 @@ setup_file() {
 }
 
 setup() {
+  root="$(git rev-parse --show-toplevel)"
   load ../shellmock
   # shellcheck disable=SC2086 # We want to perform word splitting here.
   set ${TEST_OPTS-"--"}
@@ -90,4 +91,83 @@ setup() {
   tmpdir="${BATS_TEST_TMPDIR}"
   TMPDIR="${tmpdir}" BATS_TEST_TMPDIR="" __shellmock_internal_init
   [[ -z $(trap -p -- RETURN) ]]
+}
+
+_join() {
+  local sep=$1
+  shift
+  (
+    IFS="${sep}"
+    echo "$*"
+  )
+}
+
+@test "finding executables in shell code" {
+  run -0 --separate-stderr shellmock commands << 'EOF'
+echo "Built-ins are not detected."
+if which bash; then
+  echo "Arguments that happen to be commands are not detected."
+fi
+if which bash; then
+  echo "Using an executable multiple times is OK."
+fi
+echo "Shell functions are not reported."
+shellmock new git
+shellmock new curl
+shellmock new wget
+echo "Normal executables are reported."
+ls
+ls
+find
+awk
+EOF
+
+  [[ ${output} == $(_join $'\n' awk find ls which) ]]
+}
+
+@test "counting executables and functions in shell code" {
+  run -0 --separate-stderr shellmock commands -c -f << 'EOF'
+echo "Built-ins are not detected."
+if which bash; then
+  echo "Arguments that happen to be commands are not detected."
+fi
+if which bash; then
+  echo "Using an executable multiple times is OK."
+fi
+echo "Shell functions are also reported."
+shellmock new git
+shellmock new curl
+shellmock new wget
+echo "Normal executables are reported."
+ls
+ls
+find
+awk
+EOF
+
+  [[ ${output} == $(_join $'\n' awk:1 find:1 ls:2 shellmock:3 which:2) ]]
+}
+
+@test "that we know which executables shellmock uses" {
+  run -0 --separate-stderr shellmock commands < "${root}/shellmock.bash"
+
+  exes=(
+    base32
+    base64
+    cat
+    chmod
+    env
+    find
+    go
+    grep
+    mkdir
+    mktemp
+    rm
+    sed
+    sort
+    touch
+    tr
+    xargs
+  )
+  [[ ${output} == $(_join $'\n' "${exes[@]}") ]]
 }

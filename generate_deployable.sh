@@ -71,6 +71,25 @@ EOF
 ENDOFFILE
 }
 
+# Internal Go code used to check used commands in shell code.
+__shellmock_internal_init_command_search() {
+  local path=$1
+EOF
+
+  echo "cat > \"\${path}/go.mod\"  << 'ENDOFFILE'"
+  cat ./go/go.mod
+
+  cat << 'EOF'
+ENDOFFILE
+EOF
+
+  echo "cat > \"\${path}/main.go\"  << 'ENDOFFILE'"
+  cat ./go/main.go
+
+  cat << 'EOF'
+ENDOFFILE
+}
+
 # Run initialisation steps.
 __shellmock_internal_init
 EOF

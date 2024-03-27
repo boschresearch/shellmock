@@ -50,12 +50,17 @@ The following tools are needed to use `shellmock`:
 - `base64`
 - `bash` (at least version 4.4)
 - `cat`
+- `chmod`
 - `env`
 - `find`
 - `gawk`
 - `grep`
+- `mkdir`
+- `mktemp`
+- `rm`
 - `sed`
 - `sort`
+- `touch`
 - `tr`
 - `xargs`
 
@@ -71,7 +76,11 @@ We recommend an installation via `npm` instead of an installation via `apt`.
 The reason is that many system packages provide comparatively old versions while
 the version installable via `npm` is up to date.
 
+To run the [`commands` command](./docs/usage.md#commands), you also need a
+[Golang][golang] toolchain.
+
 [bats-npm-install]: https://bats-core.readthedocs.io/en/stable/installation.html#any-os-npm
+[golang]: https://go.dev/doc/install
 
 ## Documentation Overview
 

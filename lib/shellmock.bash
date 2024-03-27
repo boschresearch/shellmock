@@ -20,7 +20,10 @@ __shellmock_mktemp() {
   local has_bats=$1
   local what=$2
   local dir
-  dir=$(mktemp -d -p "${BATS_TEST_TMPDIR-${TMPDIR-/tmp}}")
+  local base="${BATS_TEST_TMPDIR-${TMPDIR-/tmp}}/shellmock"
+  local template="${what// /_}.XXXXXXXXXX"
+  mkdir -p "${base}"
+  dir=$(mktemp -d -p "${base}" "${template}")
   if [[ ${has_bats} -eq 0 ]]; then
     echo >&2 "Keeping ${what} in: ${dir}"
   fi
@@ -61,6 +64,11 @@ __shellmock_internal_init() {
   declare -gx __SHELLMOCK_EXPECTATIONS_DIR
   __SHELLMOCK_EXPECTATIONS_DIR="$(
     __shellmock_mktemp "${has_bats}" "call records"
+  )"
+
+  declare -gx __SHELLMOCK_GO_MOD
+  __SHELLMOCK_GO_MOD="$(
+    __shellmock_mktemp "${has_bats}" "go code"
   )"
 
   declare -gx __SHELLMOCK_PATH

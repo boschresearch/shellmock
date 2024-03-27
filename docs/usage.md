@@ -51,6 +51,8 @@ It is implemented as a shell function with the following sub-commands:
   Configure a previously-created mock by defining expectations.
 - `assert`:
   Assert based on previously-configured expectations.
+- `commands`:
+  Retrieve a list of all executables and shell functions called by shell code.
 - `global-config`:
   Configure global behaviour of Shellmock itself.
 - `calls`:
@@ -74,8 +76,12 @@ You can jump to the respective section via the following links.
     - [Flexible Position-Independent argspec](#flexible-position-independent-argspec)
   - [Regex-Based argspec](#regex-based-argspec)
   - [Multi-Line Mock Output](#multi-line-mock-output)
+  - [Forwarding Calls](#forwarding-calls)
 - [assert](#assert)
   - [Assertion Types](#assertion-types)
+- [commands](#commands)
+  - [Dependencies](#dependencies)
+  - [Examples](#examples)
 - [global-config](#global-config)
   - [checkpath](#checkpath)
   - [killparent](#killparent)
@@ -430,7 +436,7 @@ EOF
 shellmock config git 0 1:tag 2:--list <<< $'first\nsecond\n'
 ```
 
-### Forwarding Calls
+#### Forwarding Calls
 
 It can be desirable to mock only some calls to an executable.
 For example, you may want to mock only `POST` request sent via `curl` but `GET`
@@ -509,6 +515,88 @@ There are currently the following types of assertions.
   This assertion will first perform the following assertions in sequence:
   `only-expected-calls`, and `call-correspondence`.
   It is a convenience assertion type combining all other assertions.
+
+### commands
+
+<!-- shellmock-helptext-start -->
+
+Syntax:
+`shellmock commands [-f] [-c]`
+
+The `commands` command builds a list of executables used by some shell code.
+The shell code that shall be checked is read from stdin.
+
+<!-- shellmock-helptext-end -->
+
+The `commands` command can be used to create a test to make sure that you know
+exactly which executables your shell script uses.
+Shell-builtins will not be reported.
+Furthermore, by default, known shell functions will not be reported unless the
+`-f` flag is provided.
+The `-c` flag will modify the output by also providing the number of times the
+executable or function is used.
+Executable/function and count will be separated by a colon.
+
+#### Dependencies
+
+The `commands` command is not fully implemented in `bash` and with default shell
+utilities.
+Instead, it uses some bundled [Golang code](../go) to perform the extraction of
+used commands.
+Thus, in order to use the `commands` command, you have to have a
+[Golang][golang] toolchain installed on your system.
+
+[golang]: https://go.dev/doc/install
+
+#### Examples
+
+**Example**:
+Finding executables
+
+```bash
+# Some shell code that uses "git" to pull a repository and mercurial otherwise.
+shellmock commands <<< "if command -v git; then git pull; else hg pull; fi"
+# Output will be:
+# git
+# hg
+```
+
+**Example**:
+Some cases that cannot be found
+
+```bash
+# Define two functions first.
+func1() {
+  echo "Running func1."
+}
+func2() {
+  local ls=ls
+  func1
+  # Output all files in a directory using `cat`.
+  find . -type f | xargs cat
+  # Calling "ls" but with its name stored in a variable.
+  "${ls}"
+  func1
+}
+
+shellmock commands -f -c <<< "$(type func2 | tail -n+2)"
+# Output will be:
+# find:1
+# func1:2
+# xargs:1
+```
+
+Note how the `-c` flag causes the number of occurrences to be reported.
+Furthermore, the `-f` flag causes `func1` to be reported, too, even though it is
+a known shell function.
+
+Note how `cat` is not detected because it is not called directly by the script.
+Instead, it is called indirectly via `xargs`.
+Also note how `ls` is not detected even though it is called directly by the
+script.
+However, its name is stored in a shell variable.
+To be able to detect such cases, the values of all shell variables would have to
+be known, which is not possible without executing the script.
 
 ### global-config
 
