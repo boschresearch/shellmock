@@ -25,9 +25,17 @@ import (
 	"os"
 	"slices"
 
-	"golang.org/x/exp/maps"
 	shell "mvdan.cc/sh/v3/syntax"
 )
+
+func sortedKeys(data map[string]int) []string {
+	result := make([]string, 0, len(data))
+	for key := range data {
+		result = append(result, key)
+	}
+	slices.Sort(result)
+	return result
+}
 
 // Determine all commands executed by a script.
 func findCommands(shellCode shell.Node) map[string]int {
@@ -66,9 +74,7 @@ func main() {
 		log.Fatalf("failed to parse shell code: %s", err.Error())
 	}
 	commands := findCommands(parsed)
-	keys := maps.Keys(commands)
-	slices.Sort(keys)
-	for _, cmd := range keys {
+	for _, cmd := range sortedKeys(commands) {
 		count := commands[cmd]
 		fmt.Printf("%s:%d\n", cmd, count)
 	}

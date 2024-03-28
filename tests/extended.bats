@@ -149,19 +149,28 @@ EOF
 }
 
 @test "that we know which executables shellmock uses" {
-  run -0 --separate-stderr shellmock commands < "${root}/shellmock.bash"
+  # Source mock executable to know functions defined therein. Shellmock itself
+  # has already been sourced, which means we can filter its internal functions.
+  source "${root}/bin/mock_exe.sh"
+
+  code=$(cat "${root}/shellmock.bash" "${root}/bin/mock_exe.sh")
+  run -0 --separate-stderr shellmock commands <<< "${code}"
 
   exes=(
     base32
     base64
+    basename
     cat
     chmod
     env
     find
+    flock
+    gawk
     go
     grep
     mkdir
     mktemp
+    ps
     rm
     sed
     sort

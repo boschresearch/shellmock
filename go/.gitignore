@@ -1,2 +1,4 @@
 # Always ignore the sumfile because users won't have one either.
-go.sum
+/go.sum
+# Ignore the build artefact.
+/main

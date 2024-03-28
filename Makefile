@@ -104,15 +104,15 @@ coverage: test
 	# Analyse output of coverage reports and fail if not all files have been
 	# covered of if coverage is not high enough.
 	gawk \
-	  -v min_cov="92" \
-	  -v tot_num_files="1" \
+	  -v min_cov="91" \
+	  -v tot_num_files="2" \
 	  'BEGIN{num_files=0; cov=0;} \
 	  $$1 ~ /"file":/{num_files++} \
 	  $$1 ~ /"covered_lines":/{cov=$$2} \
 	  $$1 ~ /"total_lines":/{tot_cov=$$2} \
 	  END{ \
 	    if(num_files!=tot_num_files){ \
-	      printf("Not all files covered: %d < %d\n", num_files, tot_num_files); exit 1 \
+	      printf("Not all files covered: %d != %d\n", num_files, tot_num_files); exit 1 \
 	    } \
 	  } \
 	  END{ \

@@ -26,8 +26,6 @@
 # stored this way can be used by the main shellmock library to assert
 # user-defined expectations.
 
-set -euo pipefail
-
 # Check whether required environment variables are set.
 env_var_check() {
   local var
@@ -315,6 +313,7 @@ main() {
 # Run if executed directly. If sourced from a bash shell, don't do anything,
 # which simplifies testing.
 if [[ -z ${BASH_SOURCE[0]-} ]] || [[ ${BASH_SOURCE[0]} == "${0}" ]]; then
+  set -euo pipefail
   main "$@"
 else
   :

@@ -48,15 +48,18 @@ The following tools are needed to use `shellmock`:
 
 - `base32`
 - `base64`
+- `basename`
 - `bash` (at least version 4.4)
 - `cat`
 - `chmod`
 - `env`
 - `find`
+- `flock`
 - `gawk`
 - `grep`
 - `mkdir`
 - `mktemp`
+- `ps`
 - `rm`
 - `sed`
 - `sort`
@@ -67,7 +70,7 @@ The following tools are needed to use `shellmock`:
 On Debian-based systems, they can be installed via:
 
 ```bash
-sudo apt install -yqq bash coreutils findutils gawk grep sed
+sudo apt install -yqq bash coreutils findutils gawk grep procps sed util-linux
 ```
 
 You also need the [bats-core] testing framework that
