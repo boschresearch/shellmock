@@ -180,3 +180,27 @@ EOF
   )
   [[ ${output} == $(_join $'\n' "${exes[@]}") ]]
 }
+
+@test "hinting at which executables are being used" {
+  # We support multiple ways to specify directives. Test that they all work.
+  directives=(
+    '# shellmock uses-command=cmd1'
+    '#shellmock:uses-command=cmd1,cmd with spaces,cmd2 # followed by a comment'
+    '     #   shellmock: uses-command=cmd2,cmd2'
+  )
+  run -0 shellmock commands -c <<< "$(_join $'\n' "${directives[@]}")"
+
+  exes=(
+    "cmd with spaces:1"
+    "cmd1:2"
+    "cmd2:3"
+  )
+  [[ ${output} == $(_join $'\n' "${exes[@]}") ]]
+}
+
+@test "warning about unknown directives" {
+  line='# shellmock: unknown-directive=value'
+  script=$'\n\n\n'"${line}"$'\n\n'
+  run -0 shellmock commands -c <<< "${script}"
+  [[ ${output} == *"WARNING: found unknown shellmock directive in line 4: ${line}"* ]]
+}

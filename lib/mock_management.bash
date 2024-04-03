@@ -268,6 +268,7 @@ __shellmock__assert() {
     declare -a actual_argspecs
     mapfile -t actual_argspecs < <(
       if [[ -d "${__SHELLMOCK_OUTPUT}/${cmd_b32}" ]]; then
+        # shellmock: uses-command=cat
         find "${__SHELLMOCK_OUTPUT}/${cmd_b32}" -mindepth 2 -type f \
           -name argspec -print0 | xargs -r -0 cat | sort -u
       fi

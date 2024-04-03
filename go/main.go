@@ -24,8 +24,17 @@ import (
 	"log"
 	"os"
 	"slices"
+	"strings"
+	"unicode"
 
 	shell "mvdan.cc/sh/v3/syntax"
+)
+
+const (
+	commentChar      = "#"
+	directiveSep     = ":"
+	directiveStart   = "shellmock"
+	usesCmdDirective = "uses-command="
 )
 
 func sortedKeys(data map[string]int) []string {
@@ -64,6 +73,50 @@ func findCommands(shellCode shell.Node) map[string]int {
 	return result
 }
 
+func findCommandsFromDirectives(shellCode string) map[string]int {
+	result := map[string]int{}
+	for lineIdx, orgLine := range strings.Split(shellCode, "\n") {
+		line := orgLine
+		isDirectiveLine := true
+		// First, detect comment lines. Then, detect lines with shellmock directives. Then, detect
+		// lines with the expected directive. Skip if any of the preconditions are not fulfilled.
+		for idx, prefix := range []string{commentChar, directiveStart, usesCmdDirective} {
+			line = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), directiveSep))
+			if !strings.HasPrefix(line, prefix) {
+				if idx >= 2 {
+					log.Printf(
+						"WARNING: found unknown shellmock directive in line %d: %s",
+						lineIdx+1, orgLine,
+					)
+				}
+				isDirectiveLine = false
+				break
+			}
+			line = strings.TrimPrefix(line, prefix)
+		}
+		if !isDirectiveLine {
+			continue
+		}
+		for _, cmd := range strings.Split(line, ",") {
+			// Stop if after some whitespace there is something starting with a comment character.
+			// That way, users can still add comments following the directive and executables
+			// containing whitespace are supported. The only thing we do not support is adding
+			// executables this way whose names contain a comment character following some space. We
+			// also do not support adding executables this way whose names contain commas.
+			idx := strings.Index(cmd, commentChar)
+			if idx > 0 && unicode.IsSpace(rune(cmd[idx-1])) {
+				// Make sure to add the last command before the trailing comment.
+				result[strings.TrimSpace(cmd[:idx])]++
+				break
+			}
+			if len(cmd) != 0 {
+				result[cmd]++
+			}
+		}
+	}
+	return result
+}
+
 func main() {
 	content, err := io.ReadAll(bufio.NewReader(os.Stdin))
 	if err != nil {
@@ -74,6 +127,11 @@ func main() {
 		log.Fatalf("failed to parse shell code: %s", err.Error())
 	}
 	commands := findCommands(parsed)
+	// Also find commands that are noted by shellmock directives.
+	moreCommands := findCommandsFromDirectives(string(content))
+	for cmd, count := range moreCommands {
+		commands[cmd] += count
+	}
 	for _, cmd := range sortedKeys(commands) {
 		count := commands[cmd]
 		fmt.Printf("%s:%d\n", cmd, count)

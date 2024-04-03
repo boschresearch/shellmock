@@ -562,41 +562,80 @@ shellmock commands <<< "if command -v git; then git pull; else hg pull; fi"
 ```
 
 **Example**:
-Some cases that cannot be found
+Some cases that cannot be found by default
 
 ```bash
-# Define two functions first.
+# Put the following function definitions in a file `script.sh`.
 func1() {
   echo "Running func1."
 }
 func2() {
   local ls=ls
   func1
-  # Output all files in a directory using `cat`.
-  find . -type f | xargs cat
+  # Output all files in a directory using `cat` via their full paths.
+  find . -type f | xargs readlink -f | xargs cat
   # Calling "ls" but with its name stored in a variable.
   "${ls}"
   func1
 }
 
-shellmock commands -f -c <<< "$(type func2 | tail -n+2)"
+# Run this in the directory containing `script.sh`.
+shellmock commands -f -c < script.sh
 # Output will be:
 # find:1
 # func1:2
-# xargs:1
+# xargs:2
 ```
 
 Note how the `-c` flag causes the number of occurrences to be reported.
 Furthermore, the `-f` flag causes `func1` to be reported, too, even though it is
 a known shell function.
 
-Note how `cat` is not detected because it is not called directly by the script.
-Instead, it is called indirectly via `xargs`.
+Note how neither `cat` nor `readlink` are detected because they are not called
+directly by the script.
+Instead, they are being called indirectly via `xargs`.
 Also note how `ls` is not detected even though it is called directly by the
 script.
 However, its name is stored in a shell variable.
 To be able to detect such cases, the values of all shell variables would have to
 be known, which is not possible without executing the script.
+
+To support examples like the one above, `shellmock` allows for specifying
+commands that are used indirectly by adding specific directives as comments.
+Lines containing directives generally look like `# shellmock:
+uses-command=cmd1,cmd2` and may be followed by a comment.
+The above example can thus be updated to report all used executables.
+
+**Example**:
+Using directives to specify used executables
+
+```bash
+# Put the following function definitions in a file `script.sh`.
+func1() {
+  echo "Running func1."
+}
+func2() {
+  local ls=ls
+  func1
+  # Output all files in a directory using `cat` via their full paths. This calls
+  # `cat` and `basename` via `xargs`.
+  # shellmock: uses-command=readlink,cat
+  find . -type f | xargs readlink -f | xargs cat
+  # shellmock: uses-command=ls  # Calling "ls" with its name in a variable.
+  "${ls}"
+  func1
+}
+
+# Run this in the directory containing `script.sh`.
+shellmock commands -f -c < script.sh
+# Output will be:
+# cat:1
+# find:1
+# func1:2
+# ls:1
+# readlink:1
+# xargs:2
+```
 
 ### global-config
 

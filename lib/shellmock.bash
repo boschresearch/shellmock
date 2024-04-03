@@ -165,6 +165,7 @@ __shellmock_internal_trap() {
   then
     local defined_cmds
     readarray -d $'\n' -t defined_cmds < <(
+      # shellmock: uses-command=basename
       find "${__SHELLMOCK_MOCKBIN}" -type f -print0 | xargs -r -0 -I{} basename {}
     ) && wait $!
 
