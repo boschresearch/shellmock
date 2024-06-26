@@ -96,9 +96,9 @@ setup() {
 }
 
 @test "changing PATH after init issues warning" {
-  export PATH="/I/do/not/exist:${PATH}"
   local stderr
-  run -0 --separate-stderr shellmock new my_exe
+  PATH="/I/do/not/exist:${PATH}" \
+    run -0 --separate-stderr shellmock new my_exe
   local regex="^WARNING: value for PATH has changed since loading shellmock"
   [[ ${stderr} =~ ${regex} ]]
 }
@@ -133,4 +133,40 @@ setup() {
 @test "expectations can be asserted when defining a mock but not configuring" {
   shellmock new some_executable
   shellmock assert expectations some_executable
+}
+
+@test "disallow calling more often than specified" {
+  export SHELLMOCK_MAX_CALLS_PER_MOCK=3
+  shellmock new some_executable
+  shellmock config some_executable 0
+  # The first 3 calls work out.
+  some_executable
+  some_executable
+  some_executable
+  # The next call fails.
+  run ! some_executable
+
+  shellmock assert expectations some_executable
+}
+
+@test "disallow configuring more often than specified" {
+  export SHELLMOCK_MAX_CONFIGS_PER_MOCK=3
+  shellmock new some_executable
+  # The first 3 configs can be set.
+  shellmock config some_executable 0 1:arg1
+  shellmock config some_executable 0 1:arg2
+  shellmock config some_executable 0 1:arg3
+  # The next one fails.
+  run ! shellmock config some_executable 0 1:arg4
+}
+
+@test "shellmock works also with almost empty PATH" {
+  orgpath="${PATH}"
+  export PATH="${__SHELLMOCK_MOCKBIN}"
+  shellmock new my_exe
+  shellmock config my_exe 0 1:arg
+  my_exe arg
+  shellmock assert expectations my_exe
+  run ! my_exe asdf
+  export PATH=${orgpath}
 }

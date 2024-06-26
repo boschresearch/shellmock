@@ -16,6 +16,8 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 
+# This file contains the definition of the global-config command.
+
 # The global-config command that can be used to get and set some global options.
 __shellmock__global-config() {
   __shellmock_internal_pathcheck

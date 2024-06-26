@@ -41,7 +41,7 @@ __shellmock__commands() {
     shift
   done
 
-  if ! command -v go &> /dev/null; then
+  if ! PATH="${__SHELLMOCK_ORGPATH}" command -v go &> /dev/null; then
     echo >&2 "The 'commands' command requires a Go toolchain." \
       "Get it from here: https://go.dev/doc/install"
     return 1
@@ -52,13 +52,15 @@ __shellmock__commands() {
     return 1
   fi
   local code
-  code="$(cat -)"
+  code="$(PATH="${__SHELLMOCK_ORGPATH}" cat -)"
 
   # Build the binary used to analyse the shell code.
   local bin="${__SHELLMOCK_GO_MOD}/main"
   if ! [[ -x ${bin} ]]; then
     __shellmock_internal_init_command_search "${__SHELLMOCK_GO_MOD}"
-    (cd "${__SHELLMOCK_GO_MOD}" && go get && go build) 1>&2
+    (cd "${__SHELLMOCK_GO_MOD}" \
+      && PATH="${__SHELLMOCK_ORGPATH}" go get \
+      && PATH="${__SHELLMOCK_ORGPATH}" go build) 1>&2
   fi
 
   declare -A builtins

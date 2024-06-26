@@ -28,36 +28,112 @@
 
 # Check whether required environment variables are set.
 env_var_check() {
-  local var
-  for var in __SHELLMOCK_MOCKBIN __SHELLMOCK_FUNCSTORE __SHELLMOCK_OUTPUT; do
-    if ! [[ -d ${!var-} ]]; then
-      echo >&2 "Vairable ${var} not defined or no directory."
-      exit 1
+  local var dir
+  local vars=(
+    __SHELLMOCK_ORGPATH
+  )
+  local dirs=(
+    __SHELLMOCK_MOCKBIN
+    __SHELLMOCK_FUNCSTORE
+    __SHELLMOCK_OUTPUT
+  )
+  for dir in "${dirs[@]}"; do
+    if ! [[ -d ${!dir-} ]]; then
+      echo >&2 "Variable ${dir} not defined or no directory."
+      _kill_parent
+    fi
+  done
+  for var in "${vars[@]}"; do
+    if [[ -z ${!var-} ]]; then
+      echo >&2 "Variable ${var} not defined."
+      _kill_parent
     fi
   done
 }
 
+# Remove shellmock's mockbin directory from PATH. We do so by using the env var
+# set by the main shellmock code.
+rm_mock_path() {
+  export PATH="${__SHELLMOCK_ORGPATH}"
+}
+
+# Make sure that we can find all the executables we need.
+binary_deps_check() {
+  local has_err=0
+  local cmd
+  for cmd in base32 cat mkdir; do
+    if ! command -v "${cmd}" &> /dev/null; then
+      echo >&2 "Required executable ${cmd} not found."
+      has_err=1
+    fi
+  done
+  if ! command -v flock &> /dev/null; then
+    echo >&2 "SHELLMOCK: Optional executable flock not found." \
+      "Please install for best performance."
+  fi
+  if [[ ${has_err} -ne 0 ]]; then
+    _kill_parent
+    return 1
+  fi
+  return 0
+}
+
 get_and_ensure_outdir() {
   local cmd_b32="$1"
+
+  local max_num_calls=${SHELLMOCK_MAX_CALLS_PER_MOCK:-100}
+  if ! [[ ${max_num_calls} =~ ^[0-9][0-9]*$ ]]; then
+    echo >&2 "SHELLMOCK_MAX_CALLS_PER_MOCK must be a number."
+    _kill_parent
+    return 1
+  fi
+  local tmp
+  tmp=$((max_num_calls - 1))
+  local max_digits=${#tmp}
+
+  # shellmock: uses-command=flock
+  local _flock=flock
+  if
+    ! command -v flock &> /dev/null \
+      || [[ ${__SHELLMOCK_TESTING_WO_FLOCK-0} -eq 1 ]]
+  then
+    _flock=true
+  fi
+
   # Ensure no two calls overwrite each other in a thread-safe way.
-  local count=0
-  local outdir="${__SHELLMOCK_OUTPUT}/${cmd_b32}/${count}"
+  local padded count=0
+  padded=$(printf "%0${max_digits}d" "${count}")
+  mkdir -p "${__SHELLMOCK_OUTPUT}/${cmd_b32}"
+  local outdir="${__SHELLMOCK_OUTPUT}/${cmd_b32}/${padded}"
   while ! (
     # Increment the counter until we find one that has not been used before.
-    flock -n 9 || exit 1
-    [[ -d ${outdir} ]] && exit 1
-    mkdir -p "${outdir}"
+    "${_flock}" -n 9 || exit 1
+    mkdir "${outdir}" &> /dev/null
   ) 9> "${__SHELLMOCK_OUTPUT}/lockfile_${cmd_b32}_${count}"; do
     count=$((count + 1))
-    outdir="${__SHELLMOCK_OUTPUT}/${cmd_b32}/${count}"
+    padded=$(printf "%0${max_digits}d" "${count}")
+    outdir="${__SHELLMOCK_OUTPUT}/${cmd_b32}/${padded}"
+
+    if [[ ${count} -ge ${max_num_calls} ]]; then
+      echo >&2 "The maximum number of calls per mock is ${max_num_calls}." \
+        "Consider increasing SHELLMOCK_MAX_CALLS_PER_MOCK, which is currently" \
+        "set to '${max_num_calls}'."
+      _kill_parent
+      return 1
+    fi
   done
+
   echo "${outdir}"
 }
 
 # When called, this script will write its own errors to a file so that they can
 # be retrieved later when asserting expectations.
 errecho() {
-  echo >> "${STDERR}" "$@"
+  if [[ -n ${STDERR} ]]; then
+    echo >> "${STDERR}" "$@"
+  else
+    echo >&2 "$@"
+  fi
 }
 
 output_args_and_stdin() {
@@ -82,6 +158,7 @@ _find_arg() {
   shift
   local args=("$@")
 
+  local check
   for check in "${args[@]}"; do
     if [[ ${arg} == "${check}" ]]; then
       return 0
@@ -96,6 +173,7 @@ _find_regex_arg() {
   shift
   local args=("$@")
 
+  local check
   for check in "${args[@]}"; do
     if [[ ${check} =~ ${regex} ]]; then
       return 0
@@ -114,8 +192,8 @@ _match_spec() {
   local spec
   while read -r spec; do
     local id val
-    id="$(gawk -F: '{print $1}' <<< "${spec}")"
-    val="${spec##"${id}":}"
+    id="${spec%%:*}"
+    val="${spec#*:}"
 
     if [[ ${spec} =~ ^any: ]]; then
       if ! _find_arg "${val}" "$@"; then
@@ -138,7 +216,7 @@ _match_spec() {
       errecho "Internal error, incorrect spec ${spec}"
       return 1
     fi
-  done < <(base64 --decode <<< "${full_spec}") && wait $! || return 1
+  done < <(base32 --decode <<< "${full_spec}") && wait $! || return 1
 }
 
 # Check whether the given process is a bats process. A bats process is a bash
@@ -162,7 +240,7 @@ _is_bats_process() {
 }
 
 _kill_parent() {
-  local parent="$1"
+  local parent="${PPID}"
 
   # Do not kill the parent process if it is a bats process. If we did, bats
   # would no longer be able to track the test.
@@ -172,10 +250,9 @@ _kill_parent() {
     return 0
   fi
 
-  errecho "Killing parent process with information:"
-  # In case the `ps` command fails (e.g. because we mock it), don't fail this
-  # mock.
-  errecho "$(ps -p "${parent}" -lF || :)"
+  local cmd_w_args
+  mapfile -t -d $'\0' cmd_w_args < "/proc/${parent}/cmdline"
+  errecho "Killing parent process: ${cmd_w_args[*]@Q}"
   kill "${parent}"
 }
 
@@ -187,33 +264,34 @@ find_matching_argspec() {
   local cmd_b32="${3}"
   shift 3
 
-  local env_var
+  local env_var var
   while read -r env_var; do
 
     if _match_spec "${!env_var}" "$@"; then
-      echo "${env_var##MOCK_ARGSPEC_BASE64_}"
+      echo "${env_var##MOCK_ARGSPEC_BASE32_}"
       echo "${env_var}" > "${outdir}/argspec"
       return 0
     fi
   done < <(
-    env | sed 's/=.*$//' \
-      | {
-        grep -x "MOCK_ARGSPEC_BASE64_${cmd_b32}_[0-9][0-9]*" || :
-      } | sort -u
+    for var in "${!MOCK_ARGSPEC_BASE32_@}"; do
+      if [[ ${var} == "MOCK_ARGSPEC_BASE32_${cmd_b32}_"* ]]; then
+        echo "${var}"
+      fi
+    done
   ) && wait $! || return 1
 
   errecho "SHELLMOCK: unexpected call '${cmd} $*'"
-  _kill_parent "${PPID}"
+  _kill_parent
   return 1
 }
 
 provide_output() {
   local cmd_spec="$1"
-  # Base64 encoding is an easy way to be able to store arbitrary data in
+  # Base32 encoding is an easy way to be able to store arbitrary data in
   # environment variables.
-  output_base64="MOCK_OUTPUT_BASE64_${cmd_spec}"
-  if [[ -n ${!output_base64-} ]]; then
-    base64 --decode <<< "${!output_base64}"
+  output_base32="MOCK_OUTPUT_BASE32_${cmd_spec}"
+  if [[ -n ${!output_base32-} ]]; then
+    base32 --decode <<< "${!output_base32}"
   fi
 }
 
@@ -233,7 +311,7 @@ run_hook() {
       # output. Anything output via errecho will end up in a file that is only
       # looked at when asserting expectations.
       echo >&2 "SHELLMOCK: error calling hook '${!hook_env_var}'"
-      _kill_parent "${PPID}"
+      _kill_parent
       return 1
     fi
   fi
@@ -270,27 +348,32 @@ forward() {
   shift
   local args=("$@")
 
-  while read -r -d: path; do
-    if
-      [[ ${path} != "${__SHELLMOCK_MOCKBIN}" ]] \
-        && PATH="${path}" command -v "${cmd}" &> /dev/null
-    then
-      local exe="${path}/${cmd}"
-      echo >&2 "SHELLMOCK: forwarding call: ${exe} $*"
-      exec "${exe}" "${args[@]}"
-    fi
-  done <<< "${__SHELLMOCK_FUNCSTORE}:${PATH}"
+  local exe
+  local path="${__SHELLMOCK_FUNCSTORE}:${PATH}"
+  # Extend PATH by shellmock's funcstore because we may want to forward to a
+  # function instead of a binary.
+  if
+    ! exe=$(PATH="${path}" command -v "${cmd}")
+  then
+    echo >&2 "SHELLMOCK: failed to find executable to forward to: ${cmd}"
+    _kill_parent
+  fi
+  echo >&2 "SHELLMOCK: forwarding call: ${exe@Q} ${*@Q}"
+  exec "${exe}" "${args[@]}"
 }
 
 main() {
   # Make sure that shell aliases never interfere with this mock.
   unalias -a
+  rm_mock_path
+  binary_deps_check
   env_var_check
   # Determine our name. This assumes that the first value in argv is the name of
   # the command. This is almost always so.
   local cmd cmd_b32 args
-  cmd="$(basename "$0")"
-  cmd_b32="$(base32 -w0 <<< "${cmd}" | tr "=" "_")"
+  cmd="${0##*/}"
+  cmd_b32="$(base32 -w0 <<< "${cmd}")"
+  cmd_b32="${cmd_b32//=/_}"
   local outdir
   outdir="$(get_and_ensure_outdir "${cmd_b32}")"
   declare -g STDERR="${outdir}/stderr"

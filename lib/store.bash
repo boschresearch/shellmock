@@ -26,12 +26,12 @@ __shellmock_internal_funcstore() {
   # are using at the moment.
   printf "#!%s\n# " "${BASH}"
   type "${cmd}"
-  cat << 'EOF'
+  PATH="${__SHELLMOCK_ORGPATH}" cat << 'EOF'
 # Run only if executed directly.
 if [[ -z ${BASH_SOURCE[0]-} ]] || [[ ${BASH_SOURCE[0]} == "${0}" ]]; then
 EOF
   printf '%s "$@"\n' "${cmd}"
-  cat << 'EOF'
+  PATH="${__SHELLMOCK_ORGPATH}" cat << 'EOF'
 else
   :
 fi

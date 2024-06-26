@@ -16,6 +16,10 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 
+# This file contains the definition of all of shellmock's commands that are
+# needed to manage mocks. This file also contains some helper functions for the
+# individual commands.
+
 # Create a new mock for an executable or a function. Functions are unset first
 # or they could not be mocked with executables.
 __shellmock__new() {
@@ -29,12 +33,14 @@ __shellmock__new() {
     # injected executable. However, store the original function so that we could
     # restore it.
     __shellmock_internal_funcstore "${cmd}" > "${__SHELLMOCK_FUNCSTORE}/${cmd}"
-    chmod +x "${__SHELLMOCK_FUNCSTORE}/${cmd}"
+    PATH="${__SHELLMOCK_ORGPATH}" chmod +x "${__SHELLMOCK_FUNCSTORE}/${cmd}"
     unset -f "${cmd}"
   fi
 
+  # The function __shellmock_write_mock_exe is generated when building the
+  # deployable.
   __shellmock_write_mock_exe > "${__SHELLMOCK_MOCKBIN}/${cmd}"
-  chmod +x "${__SHELLMOCK_MOCKBIN}/${cmd}"
+  PATH="${__SHELLMOCK_ORGPATH}" chmod +x "${__SHELLMOCK_MOCKBIN}/${cmd}"
 }
 
 # An alias for the "new" command.
@@ -48,14 +54,15 @@ __shellmock__unmock() {
 
   local cmd="$1"
   local cmd_b32
-  cmd_b32=$(base32 -w0 <<< "${cmd}" | tr "=" "_")
+  cmd_b32=$(PATH="${__SHELLMOCK_ORGPATH}" base32 -w0 <<< "${cmd}")
+  cmd_b32=${cmd_b32//=/_}
 
   # Restore the function if we are mocking one.
   local store="${__SHELLMOCK_FUNCSTORE}/${cmd}"
   if [[ -f ${store} ]]; then
     # shellcheck disable=SC1090
     source "${store}"
-    rm "${store}"
+    PATH="${__SHELLMOCK_ORGPATH}" rm "${store}"
   fi
 
   # In any case, remove the mock and unset all env vars defined for it. Mocks
@@ -65,12 +72,19 @@ __shellmock__unmock() {
   while read -r env_var; do
     unset "${env_var}"
   done < <(
-    env | sed 's/=.*$//' \
-      | { grep -xE "^MOCK_(RC|ARGSPEC_BASE64)_${cmd_b32}_[0-9][0-9]*" || :; }
+    local var
+    for var in "${!MOCK_RC_@}" "${!MOCK_ARGSPEC_BASE32_@}"; do
+      if
+        [[ ${var} == "MOCK_RC_${cmd_b32}_"* ]] \
+          || [[ ${var} == "MOCK_ARGSPEC_BASE32_${cmd_b32}_"* ]]
+      then
+        echo "${var}"
+      fi
+    done
   ) && wait $! || return 1
 
   if [[ -f "${__SHELLMOCK_MOCKBIN}/${cmd}" ]]; then
-    rm "${__SHELLMOCK_MOCKBIN}/${cmd}"
+    PATH="${__SHELLMOCK_ORGPATH}" rm "${__SHELLMOCK_MOCKBIN}/${cmd}"
   fi
 }
 
@@ -83,7 +97,7 @@ __shellmock_assert_no_duplicate_argspecs() {
   local args=("$@")
 
   declare -A arg_idx_count=()
-  declare -A duplicate_arg_indices=()
+  declare -a duplicate_arg_indices=()
   local count
   for arg in "${args[@]}"; do
     idx=${arg%%:*}
@@ -93,15 +107,13 @@ __shellmock_assert_no_duplicate_argspecs() {
     fi
     count=${arg_idx_count["${idx}"]-0}
     arg_idx_count["${idx}"]=$((count + 1))
-    if [[ ${count} -gt 0 ]]; then
-      duplicate_arg_indices["${idx}"]=1
+    if [[ ${count} -eq 1 ]]; then
+      duplicate_arg_indices+=("${idx}")
     fi
   done
   if [[ ${#duplicate_arg_indices[@]} -gt 0 ]]; then
-    local dups
-    dups=$(printf '%s\n' "${!duplicate_arg_indices[@]}" | sort -n | tr '\n' ' ')
     echo >&2 "Multiple arguments specified for the following indices, cannot" \
-      "continue: ${dups}"
+      "continue: ${duplicate_arg_indices[*]}"
     return 1
   fi
 }
@@ -115,7 +127,8 @@ __shellmock__config() {
   # Fake output is read from stdin.
   local cmd="$1"
   local cmd_b32
-  cmd_b32=$(base32 -w0 <<< "${cmd}" | tr "=" "_")
+  cmd_b32=$(PATH="${__SHELLMOCK_ORGPATH}" base32 -w0 <<< "${cmd}")
+  cmd_b32=${cmd_b32//=/_}
   local rc="$2"
   shift 2
 
@@ -136,7 +149,7 @@ __shellmock__config() {
   local has_err=0
   local regex='^(regex-[0-9][0-9]*|regex-any|i|[0-9][0-9]*|any):'
   for arg in "$@"; do
-    if ! grep -qE "${regex}" <<< "${arg}"; then
+    if ! [[ ${arg} =~ ${regex} ]]; then
       echo >&2 "Incorrect format of argspec: ${arg}"
       has_err=1
     fi
@@ -179,37 +192,56 @@ __shellmock__config() {
     return 1
   fi
 
+  local max_num_configs=${SHELLMOCK_MAX_CONFIGS_PER_MOCK:-100}
+  if ! [[ ${max_num_configs} =~ ^[0-9][0-9]*$ ]]; then
+    echo >&2 "SHELLMOCK_MAX_CONFIGS_PER_MOCK must be a number."
+    return 1
+  fi
+  local tmp
+  tmp=$((max_num_configs - 1))
+  local max_digits=${#tmp}
+
   # Handle fake exit code. Use the exit code as a proxy to determine which count
   # to use next because all mock configurations have to set the exit code but
   # not all of them have to provide arg specs or output.
-  local count=0
+  local count=0 padded
+  padded=$(printf "%0${max_digits}d" "${count}")
   local env_var_val="${rc}"
-  local env_var_name="MOCK_RC_${cmd_b32}_${count}"
+  local env_var_name="MOCK_RC_${cmd_b32}_${padded}"
   while [[ -n ${!env_var_name-} ]]; do
     count=$((count + 1))
-    env_var_name="MOCK_RC_${cmd_b32}_${count}"
+    padded=$(printf "%0${max_digits}d" "${count}")
+    env_var_name="MOCK_RC_${cmd_b32}_${padded}"
   done
+
+  if [[ ${count} -ge ${max_num_configs} ]]; then
+    echo >&2 "The maximum number of configs per mock is ${max_num_configs}." \
+      "Consider increasing SHELLMOCK_MAX_CONFIGS_PER_MOCK, which is currently" \
+      "set to '${max_num_configs}'."
+    return 1
+  fi
+
   declare -gx "${env_var_name}=${env_var_val}"
 
   # Handle arg specs.
   env_var_val=$(for arg in "${args[@]}"; do
     echo "${arg}"
-  done | base64 -w0)
-  env_var_name="MOCK_ARGSPEC_BASE64_${cmd_b32}_${count}"
+  done | PATH="${__SHELLMOCK_ORGPATH}" base32 -w0)
+  env_var_name="MOCK_ARGSPEC_BASE32_${cmd_b32}_${padded}"
   declare -gx "${env_var_name}=${env_var_val}"
 
-  # Handle fake output. Read from stdin but only if stdin is not a terminal.
+  # Handle mock's output. Read from stdin but only if stdin is not a terminal.
   if ! [[ -t 0 ]]; then
-    env_var_val="$(base64 -w0)"
+    env_var_val="$(PATH="${__SHELLMOCK_ORGPATH}" base32 -w0)"
   else
     env_var_val=
   fi
-  env_var_name="MOCK_OUTPUT_BASE64_${cmd_b32}_${count}"
+  env_var_name="MOCK_OUTPUT_BASE32_${cmd_b32}_${padded}"
   declare -gx "${env_var_name}=${env_var_val}"
 
   # Handle hook.
   if [[ -n ${hook-} ]]; then
-    env_var_name="MOCK_HOOKFN_${cmd_b32}_${count}"
+    env_var_name="MOCK_HOOKFN_${cmd_b32}_${padded}"
     declare -gx "${env_var_name}=${hook}"
   fi
 }
@@ -222,7 +254,8 @@ __shellmock__assert() {
   local assert_type="$1"
   local cmd="$2"
   local cmd_b32
-  cmd_b32=$(base32 -w0 <<< "${cmd}" | tr "=" "_")
+  cmd_b32=$(PATH="${__SHELLMOCK_ORGPATH}" base32 -w0 <<< "${cmd}")
+  cmd_b32=${cmd_b32//=/_}
 
   # Ensure we only assert on existing mocks.
   if ! [[ -x "${__SHELLMOCK_MOCKBIN}/${cmd}" ]]; then
@@ -230,7 +263,8 @@ __shellmock__assert() {
     return 1
   fi
 
-  touch "${__SHELLMOCK_EXPECTATIONS_DIR}/${cmd}"
+  # Create new empty file.
+  : > "${__SHELLMOCK_EXPECTATIONS_DIR}/${cmd}"
 
   case "${assert_type}" in
   # Make sure that no calls were issued to the mock that we did not expect. By
@@ -249,11 +283,17 @@ __shellmock__assert() {
     local stderr
     while read -r stderr; do
       if [[ -s ${stderr} ]]; then
-        cat >&2 "${stderr}"
+        PATH="${__SHELLMOCK_ORGPATH}" cat >&2 "${stderr}"
         has_err=1
       fi
     done < <(
-      find "${__SHELLMOCK_OUTPUT}/${cmd_b32}" -mindepth 2 -type f -name stderr
+      shopt -s globstar
+      local file
+      for file in "${__SHELLMOCK_OUTPUT}/${cmd_b32}/"**"/stderr"; do
+        if [[ -f ${file} ]]; then
+          echo "${file}"
+        fi
+      done
     ) && wait $! || return 1
     if [[ ${has_err} -ne 0 ]]; then
       echo >&2 "SHELLMOCK: got at least one unexpected call for mock ${cmd}."
@@ -267,20 +307,25 @@ __shellmock__assert() {
   call-correspondence)
     declare -a actual_argspecs
     mapfile -t actual_argspecs < <(
+      local file
       if [[ -d "${__SHELLMOCK_OUTPUT}/${cmd_b32}" ]]; then
-        # shellmock: uses-command=cat
-        find "${__SHELLMOCK_OUTPUT}/${cmd_b32}" -mindepth 2 -type f \
-          -name argspec -print0 | xargs -r -0 cat | sort -u
+        shopt -s globstar
+        for file in "${__SHELLMOCK_OUTPUT}/${cmd_b32}/"**"/argspec"; do
+          if [[ -f ${file} ]]; then
+            PATH="${__SHELLMOCK_ORGPATH}" cat "${file}"
+          fi
+        done
       fi
     ) && wait $! || return 1
 
     declare -a expected_argspecs
     mapfile -t expected_argspecs < <(
-      # Ignore grep's exit code, which is relevant with the "pipefail" option.
-      # The case of no matches is OK here.
-      env | sed 's/=.*$//' \
-        | { grep -x "MOCK_ARGSPEC_BASE64_${cmd_b32}_[0-9][0-9]*" || :; } \
-        | sort -u
+      local var
+      for var in "${!MOCK_ARGSPEC_BASE32_@}"; do
+        if [[ ${var} == "MOCK_ARGSPEC_BASE32_${cmd_b32}_"* ]]; then
+          echo "${var}"
+        fi
+      done
     ) && wait $! || return 1
 
     local has_err=0
@@ -288,7 +333,7 @@ __shellmock__assert() {
       if ! [[ " ${actual_argspecs[*]} " == *"${argspec}"* ]]; then
         has_err=1
         echo >&2 "SHELLMOCK: cannot find call for mock ${cmd} and argspec:" \
-          "$(base64 --decode <<< "${!argspec}")"
+          "$(PATH="${__SHELLMOCK_ORGPATH}" base32 --decode <<< "${!argspec}")"
       fi
     done
     if [[ ${has_err} -ne 0 ]]; then
@@ -347,7 +392,8 @@ __shellmock__calls() {
   local cmd="$1"
   local format="${2-"--plain"}"
   local cmd_b32
-  cmd_b32=$(base32 -w0 <<< "${cmd}" | tr "=" "_")
+  cmd_b32=$(PATH="${__SHELLMOCK_ORGPATH}" base32 -w0 <<< "${cmd}")
+  cmd_b32=${cmd_b32//=/_}
   local cmd_quoted
   cmd_quoted="$(printf "%q" "${cmd}")"
 
@@ -361,8 +407,12 @@ __shellmock__calls() {
 
   local call_ids
   readarray -d $'\n' -t call_ids < <(
-    find "${__SHELLMOCK_OUTPUT}/${cmd_b32}" -mindepth 1 -maxdepth 1 -type d \
-      | sort -n
+    local dir
+    for dir in "${__SHELLMOCK_OUTPUT}/${cmd_b32}/"*; do
+      if [[ -d ${dir} ]]; then
+        echo "${dir}"
+      fi
+    done
   ) && wait $! || return 1
 
   for call_idx in "${!call_ids[@]}"; do
@@ -380,7 +430,7 @@ __shellmock__calls() {
     done
     local stdin=
     if [[ -s "${call_id}/stdin" ]]; then
-      stdin="$(cat "${call_id}/stdin")"
+      stdin="$(PATH="${__SHELLMOCK_ORGPATH}" cat "${call_id}/stdin")"
       shell_quoted+=("<<<" "$(printf "%q" "${stdin}")")
     fi
     local suggestion="shellmock config ${cmd_quoted} 0 ${shell_quoted[*]}"
@@ -391,7 +441,7 @@ __shellmock__calls() {
       if [[ ${call_num} -ne 1 ]]; then
         echo
       fi
-      cat << EOF
+      PATH="${__SHELLMOCK_ORGPATH}" cat << EOF
 name:       ${cmd}
 id:         ${call_num}
 args:       ${args[*]}
@@ -404,7 +454,7 @@ EOF
       if [[ ${call_num} -eq 1 ]]; then
         echo $'[\n  {'
       fi
-      cat << EOF
+      PATH="${__SHELLMOCK_ORGPATH}" cat << EOF
     "name": "$(__shellmock_jsonify_string "${cmd}")",
     "id": "$(__shellmock_jsonify_string "${call_num}")",
     "args": $(__shellmock_jsonify_array "    " "${args[@]}"),

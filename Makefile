@@ -26,7 +26,6 @@ default: build
 check-dependencies:
 	command -v bash &>/dev/null || (echo "ERROR, please install bash" >&2; exit 1)
 	command -v bats &>/dev/null || (echo "ERROR, please install bats" >&2; exit 1)
-	command -v find &>/dev/null || (echo "ERROR, please install find" >&2; exit 1)
 	command -v shellcheck &>/dev/null || (echo "ERROR, please install shellcheck" >&2; exit 1)
 	command -v shfmt &>/dev/null || (echo "ERROR, please install shfmt" >&2; exit 1)
 	command -v jq &>/dev/null || (echo "ERROR, please install jq" >&2; exit 1)

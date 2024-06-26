@@ -473,7 +473,7 @@ EOF
   run ! shellmock config my_exe 0 2:two 1:one i:three regex-1:another-one
 
   local expected="Multiple arguments specified for the following \
-indices, cannot continue: 1 2 "
+indices, cannot continue: 2 1"
   [[ ${output} == "${expected}" ]]
 }
 
@@ -599,7 +599,7 @@ indices, cannot continue: 1 2 "
   ls=$(command -v ls)
   shellmock new ls
   mkdir -p "${BATS_TEST_TMPDIR}/dir"
-  touch "${BATS_TEST_TMPDIR}/dir/file"
+  : > "${BATS_TEST_TMPDIR}/dir/file"
   shellmock config ls forward 1:"${BATS_TEST_TMPDIR}/dir"
 
   # Making the linter happy.
@@ -608,7 +608,7 @@ indices, cannot continue: 1 2 "
   run --separate-stderr -0 ls "${BATS_TEST_TMPDIR}/dir"
   [[ ${output} == "file" ]]
   shellmock assert expectations ls
-  [[ ${stderr} == *"SHELLMOCK: forwarding call: ${ls} ${BATS_TEST_TMPDIR}"* ]]
+  [[ ${stderr} == *"SHELLMOCK: forwarding call: ${ls@Q} '${BATS_TEST_TMPDIR}"* ]]
 }
 
 @test "mocking only some calls to an executable" {

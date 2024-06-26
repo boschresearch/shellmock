@@ -47,30 +47,17 @@ See [below](#documentation-overview) for `shellmock`'s documentation.
 The following tools are needed to use `shellmock`:
 
 - `base32`
-- `base64`
-- `basename`
 - `bash` (at least version 4.4)
 - `cat`
 - `chmod`
-- `env`
-- `find`
-- `flock`
-- `gawk`
-- `grep`
 - `mkdir`
 - `mktemp`
-- `ps`
 - `rm`
-- `sed`
-- `sort`
-- `touch`
-- `tr`
-- `xargs`
 
 On Debian-based systems, they can be installed via:
 
 ```bash
-sudo apt install -yqq bash coreutils findutils gawk grep procps sed util-linux
+sudo apt install -yqq bash coreutils
 ```
 
 You also need the [bats-core] testing framework that
@@ -81,6 +68,8 @@ the version installable via `npm` is up to date.
 
 To run the [`commands` command](./docs/usage.md#commands), you also need a
 [Golang][golang] toolchain.
+For optimal performance, install `flock`, which is contained within the
+`util-linux` package on Debian-based systems.
 
 [bats-npm-install]: https://bats-core.readthedocs.io/en/stable/installation.html#any-os-npm
 [golang]: https://go.dev/doc/install

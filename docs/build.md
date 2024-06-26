@@ -19,5 +19,5 @@
 # Build the Deployable
 
 Simply run the script `./generate_deployable.sh` at the top level of this
-repository to generate `shellmoch.bash`.
-It uses only the standard Unix tools `bash`, `cat`, and `gawk` to generate it.
+repository to generate `shellmock.bash`.
+It uses only `bash` to generate it.

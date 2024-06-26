@@ -41,7 +41,7 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -qqy --no-install-recommends \
-            build-essential ca-certificates coreutils curl gawk gcc git jq \
+            build-essential ca-certificates coreutils curl gcc git jq \
             kcov make parallel shellcheck
 
       - name: Install bats

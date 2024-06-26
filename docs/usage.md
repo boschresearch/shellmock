@@ -618,7 +618,7 @@ func2() {
   local ls=ls
   func1
   # Output all files in a directory using `cat` via their full paths. This calls
-  # `cat` and `basename` via `xargs`.
+  # `cat` and `readlink` via `xargs`.
   # shellmock: uses-command=readlink,cat
   find . -type f | xargs readlink -f | xargs cat
   # shellmock: uses-command=ls  # Calling "ls" with its name in a variable.

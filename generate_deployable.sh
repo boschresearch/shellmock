@@ -22,11 +22,26 @@
 
 __SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/" &> /dev/null && pwd)"
 
+_cat() {
+  (
+    local line
+    IFS=
+    while read -d $'\n' -r line; do
+      printf -- '%s\n' "${line}"
+    done
+  )
+}
+
 deployable() {
   # Output header including the licence file.
   echo '#!/bin/bash'
-  sed 's/^/# /' LICENSE
-  cat << 'EOF'
+  (
+    IFS=
+    while read -r line; do
+      echo "# ${line}"
+    done < LICENSE
+  )
+  _cat << 'EOF'
 
 # This file is auto-generated. It is the main deployable of shellmock. To make
 # contributions to shellmock, please visit the repository under:
@@ -36,38 +51,51 @@ EOF
   # Output all bats helper files containing function definitions.
   for bats_file in lib/*.bash; do
     printf -- "\n# FILE: %s\n" "${bats_file}"
-    cat "${bats_file}"
+    _cat < "${bats_file}"
   done
 
   # Create a function providing the help text.
-  cat << 'ENDOFFILE'
+  _cat << 'ENDOFFILE'
 __shellmock__help() {
   "${PAGER-cat}" << 'EOF'
 This is shellmock, a tool to mock executables called within shell scripts.
 ENDOFFILE
 
-  gawk \
-    -v start='<!-- shellmock-helptext-start -->' \
-    -v end='<!-- shellmock-helptext-end -->' \
-    'BEGIN{act=0} {if($0==end){act=0}; if(act==1){print}; if($0==start){act=1;};}' \
-    ./docs/usage.md
+  # Add helptexts from the usage docs, but only a reduced version. The docs are
+  # enclosed by the HTML comments given below.
+  (
+    local line
+    IFS=
+    do_print=0
+    while read -r line; do
+      if [[ ${line} == '<!-- shellmock-helptext-end -->' ]]; then
+        do_print=0
+      fi
+      if [[ ${do_print} -eq 1 ]]; then
+        echo "${line}"
+      fi
+      if [[ ${line} == '<!-- shellmock-helptext-start -->' ]]; then
+        do_print=1
+      fi
+    done < ./docs/usage.md
+  )
 
-  cat << 'ENDOFFILE'
+  _cat << 'ENDOFFILE'
 EOF
 }
 ENDOFFILE
 
   # Create a function that outputs the mock executable to its stdout.
-  cat << 'EOF'
+  _cat << 'EOF'
 
 # Mock executable writer.
 __shellmock_write_mock_exe() {
 EOF
 
-  echo "cat << 'ENDOFFILE'"
-  cat ./bin/mock_exe.sh
+  echo "PATH=\"\${__SHELLMOCK_ORGPATH}\" cat << 'ENDOFFILE'"
+  _cat < ./bin/mock_exe.sh
 
-  cat << 'EOF'
+  _cat << 'EOF'
 ENDOFFILE
 }
 
@@ -76,17 +104,17 @@ __shellmock_internal_init_command_search() {
   local path=$1
 EOF
 
-  echo "cat > \"\${path}/go.mod\"  << 'ENDOFFILE'"
-  cat ./go/go.mod
+  echo "PATH=\"\${__SHELLMOCK_ORGPATH}\" cat > \"\${path}/go.mod\"  << 'ENDOFFILE'"
+  _cat < ./go/go.mod
 
-  cat << 'EOF'
+  _cat << 'EOF'
 ENDOFFILE
 EOF
 
-  echo "cat > \"\${path}/main.go\"  << 'ENDOFFILE'"
-  cat ./go/main.go
+  echo "PATH=\"\${__SHELLMOCK_ORGPATH}\" cat > \"\${path}/main.go\"  << 'ENDOFFILE'"
+  _cat < ./go/main.go
 
-  cat << 'EOF'
+  _cat << 'EOF'
 ENDOFFILE
 }
 

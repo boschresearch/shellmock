@@ -16,14 +16,17 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 
+# This file contains internal helper functions used by different shellmock
+# commands.
+
 __shellmock_mktemp() {
   local has_bats=$1
   local what=$2
   local dir
   local base="${BATS_TEST_TMPDIR-${TMPDIR-/tmp}}/shellmock"
   local template="${what// /_}.XXXXXXXXXX"
-  mkdir -p "${base}"
-  dir=$(mktemp -d -p "${base}" "${template}")
+  PATH="${__SHELLMOCK_ORGPATH}" mkdir -p "${base}"
+  dir=$(PATH="${__SHELLMOCK_ORGPATH}" mktemp -d -p "${base}" "${template}")
   if [[ ${has_bats} -eq 0 ]]; then
     echo >&2 "Keeping ${what} in: ${dir}"
   fi
@@ -50,10 +53,13 @@ __shellmock_internal_init() {
     echo >&2 "Running outside of bats, temporary directories will be kept."
   fi
 
+  declare -gx __SHELLMOCK_ORGPATH
+  # Remember the original value of "${PATH}" when shellmock was loaded.
+  __SHELLMOCK_ORGPATH="${PATH}"
+
   # Modify PATH to permit injecting executables.
   declare -gx __SHELLMOCK_MOCKBIN
   __SHELLMOCK_MOCKBIN="$(__shellmock_mktemp "${has_bats}" "mocks")"
-  export PATH="${__SHELLMOCK_MOCKBIN}:${PATH}"
 
   declare -gx __SHELLMOCK_OUTPUT
   __SHELLMOCK_OUTPUT="$(__shellmock_mktemp "${has_bats}" "mock call data")"
@@ -71,10 +77,12 @@ __shellmock_internal_init() {
     __shellmock_mktemp "${has_bats}" "go code"
   )"
 
+  export PATH="${__SHELLMOCK_MOCKBIN}:${PATH}"
   declare -gx __SHELLMOCK_PATH
   # Remember the value of "${PATH}" when shellmock was loaded, including the
   # prepended mockbin dir.
   __SHELLMOCK_PATH="${PATH}"
+
   # By default, perform checks for changes made to PATH because that can prevent
   # mocking from working.
   declare -gx __SHELLMOCK__CHECKPATH=1
@@ -165,8 +173,14 @@ __shellmock_internal_trap() {
   then
     local defined_cmds
     readarray -d $'\n' -t defined_cmds < <(
-      # shellmock: uses-command=basename
-      find "${__SHELLMOCK_MOCKBIN}" -type f -print0 | xargs -r -0 -I{} basename {}
+      # Recursively get the name of the mock binary commands.
+      shopt -s globstar
+      local file
+      for file in "${__SHELLMOCK_MOCKBIN}"/**; do
+        if [[ -f ${file} ]]; then
+          echo "${file##*/}"
+        fi
+      done
     ) && wait $!
 
     local cmd has_err=0
@@ -189,31 +203,5 @@ __shellmock_internal_trap() {
     elif [[ ${has_err} -ne 0 ]]; then
       exit "${has_err}"
     fi
-  fi
-}
-
-# Main shellmock command. Subcommands can be added by creating a shell function
-# following a specific naming scheme. We avoid complex parsing of arguments with
-# a tool such as getopt or getopts.
-shellmock() {
-  # Handle the user requesting a help text.
-  for arg in "$@"; do
-    if [[ ${arg} == --help ]]; then
-      set -- "help"
-      break
-    fi
-  done
-
-  local cmd="$1"
-  shift
-
-  # Execute subcommand with arguments but only if they are shell functions and
-  # exist.
-  if [[ $(type -t "__shellmock__${cmd}") == function ]]; then
-    "__shellmock__${cmd}" "$@"
-  else
-    echo >&2 "Unknown command for shellmock: ${cmd}." \
-      "Call with --help to view the help text."
-    return 1
   fi
 }
