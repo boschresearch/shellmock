@@ -140,10 +140,10 @@ output_args_and_stdin() {
   local outdir="$1"
   shift
 
-  # Split arguments by newlines. This will cause problems if there are ever
-  # arguments with newlines, of course. Improvements are welcome.
+  # Split arguments by null bytes.
+  local arg
   for arg in "$@"; do
-    printf -- "%s\n" "${arg-}"
+    printf -- "%s\0" "${arg-}"
   done > "${outdir}/args"
   # If stdin is a terminal, we are called interactively. Don't output our stdin
   # in this case. Only output our stdin if we are not invoked interactively.
@@ -190,7 +190,7 @@ _match_spec() {
   shift
 
   local spec
-  while read -r spec; do
+  while IFS= read -d $'\0' -r spec; do
     local id val
     id="${spec%%:*}"
     val="${spec#*:}"
@@ -265,7 +265,7 @@ find_matching_argspec() {
   shift 3
 
   local env_var var
-  while read -r env_var; do
+  while IFS= read -r env_var; do
 
     if _match_spec "${!env_var}" "$@"; then
       echo "${env_var##MOCK_ARGSPEC_BASE32_}"

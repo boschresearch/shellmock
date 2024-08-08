@@ -79,7 +79,7 @@ test-bash-version:
 	echo >&2 "INFO: using $$(which bash) @ $$(bash -c 'echo $${BASH_VERSION}')" && \
 	$(MAKE) test TEST_SHELL="$$(which bash)"
 
-SUPPORTED_VERSIONS := 5.2 5.1 5.0 4.4
+SUPPORTED_VERSIONS ?= 5.2 5.1 5.0 4.4
 
 .PHONY: test-bash-versions
 test-bash-versions: build

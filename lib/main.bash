@@ -23,6 +23,7 @@
 # a tool such as getopt or getopts.
 shellmock() {
   # Handle the user requesting a help text.
+  local arg
   for arg in "$@"; do
     if [[ ${arg} == --help ]]; then
       set -- "help"

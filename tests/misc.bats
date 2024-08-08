@@ -79,6 +79,7 @@ setup() {
 @test "mocking executables with unusual names" {
   for exe in happy😀face exe-with-dash chinese龙dragon "exe with spaces"; do
     (
+      echo >&2 "Testing executable: ${exe@Q}"
       # Make sure the test fails as soon as one command errors out, even though
       # we are in a subshell.
       set -euo pipefail
@@ -91,6 +92,26 @@ setup() {
       "${exe}" arg
       # Make sure assertions work for such mocks.
       shellmock assert expectations "${exe}"
+      echo >&2 "Success for executable: ${exe@Q}"
+    )
+  done
+}
+
+@test "using arguments with (fancy) whitespace" {
+  for arg in "a b" $'a\tb' $'a\nb' 'a b' " " " a "; do
+    (
+      echo >&2 "Testing arg: ${arg@Q}"
+      # Make sure the test fails as soon as one test errors out, even though
+      # we are in a subshell.
+      set -euo pipefail
+      shellmock new exe
+      # Define the mock to return with success.
+      shellmock config exe 0 1:first-arg 2:"${arg}" 3:third-arg
+      # Call the mock.
+      exe first-arg "${arg}" third-arg
+      # Make sure assertions work for such mocks.
+      shellmock assert expectations exe
+      echo >&2 "Success for arg: ${arg@Q}"
     )
   done
 }

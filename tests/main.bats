@@ -60,6 +60,15 @@ setup() {
   git checkout
 }
 
+@test "a concrete example with whitespace" {
+  # This concrete example uses the "git" executable with the "checkout" command.
+  # You could mock it like this analogous to the previous test.
+  shellmock new git
+  shellmock config git 0 1:checkout 2:"my branch" 3:main
+  # Git mock can be called with the checkout command.
+  git checkout "my branch" main
+}
+
 @test "we can mock a function" {
   # When calling an identifier, e.g. "git", the shell will give precedence to
   # functions. That is, if there is a function called "git" and an executable in

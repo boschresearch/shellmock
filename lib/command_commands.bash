@@ -65,12 +65,12 @@ __shellmock__commands() {
 
   declare -A builtins
   local tmp
-  while read -r tmp; do
+  while IFS= read -r tmp; do
     builtins["${tmp}"]=1
   done < <(compgen -b) && wait $! || return 1
 
   local cmd
-  while read -r tmp; do
+  while IFS= read -r tmp; do
     cmd="${tmp%:*}"
     # Only output if it is neither a currently defined function or a built-in.
     if

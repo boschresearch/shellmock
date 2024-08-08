@@ -69,7 +69,7 @@ __shellmock__unmock() {
   # are identified by their argspecs or return codes. Thus, we only remove those
   # env vars.
   local env_var
-  while read -r env_var; do
+  while IFS= read -r env_var; do
     unset "${env_var}"
   done < <(
     local var
@@ -98,7 +98,7 @@ __shellmock_assert_no_duplicate_argspecs() {
 
   declare -A arg_idx_count=()
   declare -a duplicate_arg_indices=()
-  local count
+  local count arg
   for arg in "${args[@]}"; do
     idx=${arg%%:*}
     idx=${idx#regex-}
@@ -145,6 +145,7 @@ __shellmock__config() {
   fi
 
   # Validate input format.
+  local arg
   local args=()
   local has_err=0
   local regex='^(regex-[0-9][0-9]*|regex-any|i|[0-9][0-9]*|any):'
@@ -225,7 +226,7 @@ __shellmock__config() {
 
   # Handle arg specs.
   env_var_val=$(for arg in "${args[@]}"; do
-    echo "${arg}"
+    printf "%s\0" "${arg}"
   done | PATH="${__SHELLMOCK_ORGPATH}" base32 -w0)
   env_var_name="MOCK_ARGSPEC_BASE32_${cmd_b32}_${padded}"
   declare -gx "${env_var_name}=${env_var_val}"
@@ -281,7 +282,7 @@ __shellmock__assert() {
 
     local has_err=0
     local stderr
-    while read -r stderr; do
+    while IFS= read -r stderr; do
       if [[ -s ${stderr} ]]; then
         PATH="${__SHELLMOCK_ORGPATH}" cat >&2 "${stderr}"
         has_err=1
@@ -332,8 +333,14 @@ __shellmock__assert() {
     for argspec in "${expected_argspecs[@]}"; do
       if ! [[ " ${actual_argspecs[*]} " == *"${argspec}"* ]]; then
         has_err=1
-        echo >&2 "SHELLMOCK: cannot find call for mock ${cmd} and argspec:" \
-          "$(PATH="${__SHELLMOCK_ORGPATH}" base32 --decode <<< "${!argspec}")"
+        local msg_args=()
+        readarray -d $'\0' -t msg_args < <(
+          PATH="${__SHELLMOCK_ORGPATH}" base32 --decode <<< "${!argspec}"
+        ) && wait $! || exit 1
+        (
+          IFS=" " && echo >&2 "SHELLMOCK: cannot find call for mock ${cmd}" \
+            "and argspec: ${msg_args[*]}"
+        )
       fi
     done
     if [[ ${has_err} -ne 0 ]]; then
@@ -422,7 +429,7 @@ __shellmock__calls() {
 
     # Extract arguments and stdin. Shell-quote everything for the suggestion.
     local args=()
-    readarray -d $'\n' -t args < "${call_id}/args"
+    readarray -d $'\0' -t args < "${call_id}/args"
     local idx
     for idx in "${!args[@]}"; do
       local arg="${args[${idx}]}"
