@@ -146,6 +146,7 @@ Any error calling the hook will be considered an error (also see
 A hook can be used to perform additional assertions or record additional data.
 Since the hook function is run in a sub-process, it cannot modify any shell
 variables and has access only to environment variables.
+The hook function receives all the arguments that the mock has been called with.
 
 Every following argument to the `config` command is a so-called `argspec` (see
 below).
@@ -412,8 +413,8 @@ There are three recommended ways for defining multi-line output, namely
 
 - adding literal line breaks to the string, or
 - using a here-document, or
-- [having bash interpret escape sequences][bash-ansi-escape] using a
-  character sequence of the form `$'string'`.
+- [having bash interpret escape sequences][bash-ansi-escape] using a character
+  sequence of the form `$'string'`.
 
 [bash-ansi-escape]: https://www.gnu.org/software/bash/manual/html_node/ANSI_002dC-Quoting.html#ANSI_002dC-Quoting
 

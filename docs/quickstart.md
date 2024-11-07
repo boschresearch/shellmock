@@ -97,8 +97,7 @@ What happens in details:
      That is, the mock has not been called with at least one set of arguments
      that match a previous call to `shellmock config`.
 
-Please have a look at the [full command reference](./usage.md) for all
-details.
+Please have a look at the [full command reference](./usage.md) for all details.
 You can also have a look at [this detailed example](./example.md) or
 [shellmock's own tests][shellmock-tests].
 You may also check out our [how-to for creating tests](./howto.md).

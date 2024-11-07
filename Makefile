@@ -29,15 +29,25 @@ check-dependencies:
 	command -v shellcheck &>/dev/null || (echo "ERROR, please install shellcheck" >&2; exit 1)
 	command -v shfmt &>/dev/null || (echo "ERROR, please install shfmt" >&2; exit 1)
 	command -v jq &>/dev/null || (echo "ERROR, please install jq" >&2; exit 1)
-	command -v kcov &>/dev/null || (echo "ERROR, please install kcov " >&2; exit 1)
+	command -v kcov &>/dev/null || (echo "ERROR, please install kcov" >&2; exit 1)
+	command -v mdslw &>/dev/null || (echo "ERROR, please install mdslw" >&2; exit 1)
 
-SHELLCHECK_OPTS := --enable=add-default-case,avoid-nullary-conditions,quote-safe-variables,require-variable-braces
-export SHELLCHECK_OPTS
+SHELLCHECK_OPTS := --external-sources --enable=add-default-case,avoid-nullary-conditions,quote-safe-variables,require-variable-braces
+SHFMT_OPTS := --space-redirects --binary-next-line --indent 2
+MDSLW_OPTS := --upstream="prettier --parser=markdown"
 
 .PHONY: lint
 lint:
-	shellcheck ./bin/* ./lib/* ./tests/*
-	$(MAKE) check-format
+	shellcheck $(SHELLCHECK_OPTS) ./bin/* ./lib/* ./tests/*
+	shfmt --diff $(SHFMT_OPTS) --language-dialect bash ./bin/* ./lib/*
+	shfmt --diff $(SHFMT_OPTS) --language-dialect bats ./tests/*
+	mdslw --mode=check $(MDSLW_OPTS) .
+
+format:
+	shfmt --write --simplify $(SHFMT_OPTS) --language-dialect bash ./bin/* ./lib/*
+	shfmt --write --simplify $(SHFMT_OPTS) --language-dialect bats ./tests/*
+	mdslw --mode=format --upstream="prettier --parser=markdown" .
+	shellcheck --format=diff $(SHELLCHECK_OPTS) bin/* lib/* tests/* | git apply --allow-empty
 
 # Run tests under all possible combinations of some shell options.
 .PHONY: test
@@ -57,7 +67,7 @@ build-bash-version:
 	# Ensure that the arguments have been set.
 	[[ -n "$(BASH_VERSION)" && -n "$(BASH_PATH)" ]]
 	cd "$(BASH_PATH)" && \
-	curl -sSfL -o bash.tar.gz "$(DOWNLOAD_URL_PREFIX)/bash-$(BASH_VERSION).tar.gz" && \
+	curl -fL -o bash.tar.gz "$(DOWNLOAD_URL_PREFIX)/bash-$(BASH_VERSION).tar.gz" && \
 	tar -xvzf bash.tar.gz && \
 	cd "bash-$(BASH_VERSION)" && \
 	./configure && \
@@ -121,17 +131,6 @@ coverage: test
 	      printf("Coverage is OK at %d%%.\n", 100*cov/tot_cov); \
 	    } \
 	  }' < <(jq < $$(ls -d1 .coverage/bats.*/coverage.json) | sed 's/,$$//')
-
-format:
-	shfmt -w -s -bn -i 2 -sr -ln bash ./bin/* ./lib/*
-	shfmt -w -s -bn -i 2 -sr -ln bats ./tests/*
-	mdslw --mode=format --upstream="prettier --parser=markdown" .
-	shellcheck --format=diff bin/* lib/* tests/* | git apply --allow-empty
-
-check-format:
-	shfmt -d -s -bn -i 2 -sr -ln bash ./bin/* ./lib/*
-	shfmt -d -s -bn -i 2 -sr -ln bats ./tests/*
-	mdslw --mode=check --upstream="prettier --parser=markdown" .
 
 build:
 	./generate_deployable.sh

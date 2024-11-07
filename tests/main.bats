@@ -541,6 +541,24 @@ indices, cannot continue: 2 1"
   run ! shellmock config my_exe 0 hook:_missing_hook
 }
 
+@test "hook matched on arguments and getting arguments" {
+  shellmock new my_exe
+  _hook_matched() {
+    echo "$*" > "${BATS_TEST_TMPDIR}/matched"
+  }
+  shellmock config my_exe 0 1:some-arg
+  shellmock config my_exe 0 hook:_hook_matched 1:another-arg
+
+  run -0 my_exe some-arg
+  [[ ! -s "${BATS_TEST_TMPDIR}/matched" ]]
+
+  run -0 my_exe another-arg
+  [[ -s "${BATS_TEST_TMPDIR}/matched" ]]
+  [[ $(cat "${BATS_TEST_TMPDIR}/matched") == another-arg ]]
+
+  shellmock assert expectations my_exe
+}
+
 @test "removing and re-creating a mock after creating one" {
   # Not defined at first.
   run ! my_exe

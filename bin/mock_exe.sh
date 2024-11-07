@@ -297,6 +297,8 @@ provide_output() {
 
 run_hook() {
   local cmd_spec="$1"
+  shift
+  local args=("$@")
   # If a hook function was specified, run it. It has to be exported for this to
   # work.
   local hook_env_var
@@ -306,7 +308,7 @@ run_hook() {
       && [[ $(type -t "${!hook_env_var-}") == function ]]
   then
     # Run hook in sub-shell to reduce its influence on the mock.
-    if ! ("${!hook_env_var}"); then
+    if ! ("${!hook_env_var}" "${args[@]}"); then
       # Not using errecho because we want this to always show up in the test's
       # output. Anything output via errecho will end up in a file that is only
       # looked at when asserting expectations.
@@ -388,7 +390,7 @@ main() {
     forward "${cmd}" "$@"
   else
     provide_output "${cmd_spec}"
-    run_hook "${cmd_spec}"
+    run_hook "${cmd_spec}" "$@"
     return_with_code "${cmd_spec}"
   fi
 }
