@@ -43,6 +43,18 @@ __shellmock__new() {
   PATH="${__SHELLMOCK_ORGPATH}" chmod +x "${__SHELLMOCK_MOCKBIN}/${cmd}"
 }
 
+# Check whether a command has been mocked by shellmock.
+__shellmock__is-mock() {
+  __shellmock_internal_pathcheck
+  __shellmock_internal_trapcheck
+
+  local cmd="$1"
+
+  local location
+  location=$(command -v "${cmd}" 2> /dev/null || :)
+  [[ ${location} == "${__SHELLMOCK_MOCKBIN}/${cmd}" ]]
+}
+
 # An alias for the "new" command.
 __shellmock__mock() {
   __shellmock__new "$@"

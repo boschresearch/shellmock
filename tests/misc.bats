@@ -191,3 +191,20 @@ setup() {
   run ! my_exe asdf
   export PATH=${orgpath}
 }
+
+@test "determining whether an executable is a mock" {
+  # An executable is no mock by default.
+  run ! shellmock is-mock ls
+  [[ -z ${output} ]]
+  # Create mock.
+  shellmock new ls
+  # An executable is a mock after creating one.
+  run -0 shellmock is-mock ls
+  [[ -z ${output} ]]
+}
+
+@test "whether something is a mock works for non-existent executables" {
+  run ! command -v some_non_existent_exe
+  run ! shellmock is-mock some_non_existent_exe
+  [[ -z ${output} ]]
+}

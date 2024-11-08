@@ -59,6 +59,8 @@ It is implemented as a shell function with the following sub-commands:
   Log past calls to mocks and suggest mock configs to reproduce.
 - `delete` / `unmock`:
   Remove all mocks for an executable.
+- `is-mock`:
+  Determine whether an executable has been mocked by shellmock.
 - `help`:
   Provide a help text.
 
@@ -904,3 +906,25 @@ shellmock delete git
 This will remove the mock executable for `git`.
 It will also undo all mock configurations issued via `shellmock config git`.
 After unmocking, new mocks can be created for the very same executable.
+
+### is-mock
+
+<!-- shellmock-helptext-start -->
+
+Syntax:
+`shellmock is-mock <name>`
+
+The `is-mock` command determines whether a command is mocked by `shellmock`.
+An exit code of `0` means that it is, while a non-zero one means it is not.
+
+<!-- shellmock-helptext-end -->
+
+The command should usually be used as part if an `if` condition:
+
+```bash
+if shellmock is-mock git; then
+  echo "Performing actions in case git has been mocked."
+else
+  echo "Otherwise."
+fi
+```
