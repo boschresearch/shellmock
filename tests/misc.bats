@@ -25,8 +25,6 @@ setup_file() {
 setup() {
   load ../shellmock
   shellmock global-config setval ensure-assertions 0
-  # shellcheck disable=SC2086 # We want to perform word splitting here.
-  set ${TEST_OPTS-"--"}
 }
 
 @test "incorrect argspecs fail the configuration" {

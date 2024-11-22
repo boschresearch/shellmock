@@ -25,8 +25,6 @@ setup_file() {
 setup() {
   root="$(git rev-parse --show-toplevel)"
   load ../shellmock
-  # shellcheck disable=SC2086 # We want to perform word splitting here.
-  set ${TEST_OPTS-"--"}
 }
 
 @test "auto-detection of forgotten assertions" {
@@ -207,4 +205,76 @@ EOF
   # for the absence of race conditions.
   outputs=("${__SHELLMOCK_OUTPUT}/"*"/"*)
   [[ ${#outputs[@]} -eq 50 ]]
+}
+
+@test "modifying arguments" {
+  _modify_my_args() {
+    echo "${*@Q}"
+    return "$1"
+  }
+  # Ensure the function works as expected.
+  run -2 _modify_my_args 2 "as df" "foo bar"
+  [[ ${output} == "'2' 'as df' 'foo bar'" ]]
+  # Prepare modifying the arguments.
+  _modify_args() {
+    # Replace one argument by another one.
+    for arg in "$@"; do
+      if [[ ${arg} == "as df" ]]; then
+        arg="foo bar"
+      fi
+      update_args "${arg}"
+    done
+    # Append some arguments in bulk.
+    update_args some more arguments
+  }
+  shellmock new _modify_my_args
+  shellmock config _modify_my_args forward:_modify_args
+  # Ensure the function's arguments were modified.
+  run -3 --separate-stderr _modify_my_args 3 "as df" "foo bar"
+  [[ ${output} == "'3' 'foo bar' 'foo bar' 'some' 'more' 'arguments'" ]]
+  shellmock assert expectations _modify_my_args
+}
+
+@test "reporting failure modifying arguments" {
+  _fail_to_modify_my_args() {
+    echo "${*@Q}"
+  }
+  _fail_to_modify_args() {
+    return 1
+  }
+  shellmock new _fail_to_modify_my_args
+  shellmock config _fail_to_modify_my_args forward:_fail_to_modify_args
+  # Ensure a failure to modify arguments counts as a failure executing the mock.
+  run ! _fail_to_modify_my_args "as df" "foo bar"
+  shellmock assert expectations _fail_to_modify_my_args
+}
+
+@test "forwarding to a different executable" {
+  _forward_to_someone_else() {
+    echo "I don't want to be called."
+    return 3
+  }
+  _forward_to_me() {
+    echo "Call me!" "${@@Q}"
+    return 4
+  }
+  # Prepare modifying the arguments.
+  _redirect() {
+    update_args _forward_to_me
+    shift
+    update_args "$@"
+  }
+  shellmock new _forward_to_someone_else
+  # We do not expect the mock for _forward_to_me to be called. Instead, we
+  # forward only to executables and not to their mocks. Thus, we will forward to
+  # the script that stores the original function _forward_to_me instead of the
+  # mock that is in the directory that shellmock prepended to PATH.
+  shellmock new _forward_to_me
+  shellmock config _forward_to_someone_else forward:_redirect
+  # Call the first mock, which will forward to the function that shellmock
+  # stored in a file when mocking the second one.
+  run -4 --separate-stderr _forward_to_someone_else "some arg" "another arg"
+  [[ ${output} == "Call me! 'some arg' 'another arg'" ]]
+  shellmock assert expectations _forward_to_someone_else
+  shellmock assert expectations _forward_to_me
 }

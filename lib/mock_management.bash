@@ -144,13 +144,37 @@ __shellmock__config() {
   local rc="$2"
   shift 2
 
+  # Sanity check the provided return code.
+  if
+    ! [[ ${rc} =~ ^[0-9][0-9]*$ || ${rc} == "forward" || ${rc} == "forward:"* ]]
+  then
+    echo >&2 "Incorrect format for second argument to 'shellmock config'." \
+      "It must be numeric, 'forward', or 'forward:<function_name>'"
+    return 1
+  fi
+  # If a forwarding function has been set, check whether it is a function and
+  # export it.
+  if [[ ${rc} == "forward:"* ]]; then
+    local forward_fn
+    forward_fn="${rc##forward:}"
+    if [[ $(type -t "${forward_fn}") != function ]]; then
+      echo >&2 "Requested forwarding function ${forward_fn@Q} does not exist."
+      return 1
+    fi
+    if [[ ${forward_fn} == update_args ]]; then
+      echo >&2 "Forwarding function must not be called 'update_args'."
+      return 1
+    fi
+    export -f "${forward_fn?}"
+  fi
+
   # If a hook has been set, check whether it is a function and export it.
   local hook
   if [[ ${1-} == "hook:"* ]]; then
     hook="${1##hook:}"
     shift
     if [[ $(type -t "${hook}") != function ]]; then
-      echo >&2 "Requested hook function '${hook}' does not exist."
+      echo >&2 "Requested hook function ${hook@Q} does not exist."
       return 1
     fi
     export -f "${hook?}"

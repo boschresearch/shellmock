@@ -32,8 +32,6 @@ setup() {
   #shellcheck disable=SC2317
   load ../shellmock
   shellmock global-config setval ensure-assertions 0
-  # shellcheck disable=SC2086 # We want to perform word splitting here.
-  set ${TEST_OPTS-"--"}
 }
 
 @test "we can mock an executable" {
@@ -392,13 +390,10 @@ setup() {
   # should only be used for mock development. However, to validate what was
   # written to stdout for this test, we ignore the return value here if it is
   # the expected "1".
-  logs=$(
-    shellmock calls git --plain
-    [[ $? -eq 1 ]]
-  )
+  run -1 --separate-stderr shellmock calls git --plain
   # We default to plain text by default.
-  paste <(echo "${logs}") <(shellmock calls git || :)
-  diff <(echo "${logs}") <(shellmock calls git || :)
+  paste <(echo "${output}") <(shellmock calls git || :)
+  diff <(echo "${output}") <(shellmock calls git || :)
   # Check that we generated what we expected to.
   local expected
   expected=$(
@@ -422,7 +417,7 @@ stdin:
 suggestion: shellmock config git 0 1:reset 2:--soft 3:with\"quotes
 EOF
   )
-  diff <(echo "${expected}") <(echo "${logs}")
+  diff <(echo "${expected}") <(echo "${output}")
 }
 
 @test "logging mock calls as json" {
@@ -438,39 +433,36 @@ EOF
   # should only be used for mock development. However, to validate what was
   # written to stdout for this test, we ignore the return value here if it is
   # the expected "1".
-  logs=$(
-    shellmock calls git --json
-    [[ $? -eq 1 ]]
-  )
+  run -1 --separate-stderr shellmock calls git --json
   # Check that we generate valid JSON.
-  jq > /dev/null <<< "${logs}"
+  jq > /dev/null <<< "${output}"
   # Check that we generated what we expected to. Use raw strings throughout,
   # i.e. have jq undo the JSON quoting done by shellmock.
   # Names.
-  [[ $(jq -r ".[].name" <<< "${logs}" | sort | uniq) == git ]]
+  [[ $(jq -r ".[].name" <<< "${output}" | sort | uniq) == git ]]
   # IDs.
-  [[ $(jq -r ".[].id" <<< "${logs}") == $'1\n2\n3' ]]
+  [[ $(jq -r ".[].id" <<< "${output}") == $'1\n2\n3' ]]
   # STDINs.
-  [[ "$(jq -r ".[0].stdin" <<< "${logs}")" == "nu'll" ]]
-  [[ -z "$(jq -r ".[1].stdin" <<< "${logs}")" ]]
-  [[ -z "$(jq -r ".[2].stdin" <<< "${logs}")" ]]
+  [[ "$(jq -r ".[0].stdin" <<< "${output}")" == "nu'll" ]]
+  [[ -z "$(jq -r ".[1].stdin" <<< "${output}")" ]]
+  [[ -z "$(jq -r ".[2].stdin" <<< "${output}")" ]]
   # Args.
-  [[ "$(jq -r ".[0].args[0]" <<< "${logs}")" == "branch" ]]
-  [[ "$(jq -r ".[0].args[1]" <<< "${logs}")" == "-l" ]]
-  [[ "$(jq -r ".[1].args[0]" <<< "${logs}")" == "checkout" ]]
-  [[ "$(jq -r ".[1].args[1]" <<< "${logs}")" == "-b" ]]
-  [[ "$(jq -r ".[1].args[2]" <<< "${logs}")" == 'strange\branch' ]]
-  [[ "$(jq -r ".[2].args[0]" <<< "${logs}")" == "reset" ]]
-  [[ "$(jq -r ".[2].args[1]" <<< "${logs}")" == "--soft" ]]
-  [[ "$(jq -r ".[2].args[2]" <<< "${logs}")" == 'with"quotes' ]]
+  [[ "$(jq -r ".[0].args[0]" <<< "${output}")" == "branch" ]]
+  [[ "$(jq -r ".[0].args[1]" <<< "${output}")" == "-l" ]]
+  [[ "$(jq -r ".[1].args[0]" <<< "${output}")" == "checkout" ]]
+  [[ "$(jq -r ".[1].args[1]" <<< "${output}")" == "-b" ]]
+  [[ "$(jq -r ".[1].args[2]" <<< "${output}")" == 'strange\branch' ]]
+  [[ "$(jq -r ".[2].args[0]" <<< "${output}")" == "reset" ]]
+  [[ "$(jq -r ".[2].args[1]" <<< "${output}")" == "--soft" ]]
+  [[ "$(jq -r ".[2].args[2]" <<< "${output}")" == 'with"quotes' ]]
   # Suggestions.
-  suggestion="$(jq -r ".[0].suggestion" <<< "${logs}")"
+  suggestion="$(jq -r ".[0].suggestion" <<< "${output}")"
   expectation="shellmock config git 0 1:branch 2:-l <<< nu\\'ll"
   [[ ${suggestion} == "${expectation}" ]]
-  suggestion="$(jq -r ".[1].suggestion" <<< "${logs}")"
+  suggestion="$(jq -r ".[1].suggestion" <<< "${output}")"
   expectation='shellmock config git 0 1:checkout 2:-b 3:strange\\branch'
   [[ ${suggestion} == "${expectation}" ]]
-  suggestion="$(jq -r ".[2].suggestion" <<< "${logs}")"
+  suggestion="$(jq -r ".[2].suggestion" <<< "${output}")"
   expectation='shellmock config git 0 1:reset 2:--soft 3:with\"quotes'
   [[ ${suggestion} == "${expectation}" ]]
 }

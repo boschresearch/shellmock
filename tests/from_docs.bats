@@ -26,8 +26,6 @@ setup() {
   # automatically.
   load ../shellmock
   script=script
-  # shellcheck disable=SC2086 # We want to perform word splitting here.
-  set ${TEST_OPTS-"--"}
 }
 
 # We replace the script with a function to have a self-contained example.

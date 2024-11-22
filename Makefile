@@ -52,13 +52,8 @@ format:
 # Run tests under all possible combinations of some shell options.
 .PHONY: test
 test: build
-	for opts in {-e,+e}{-u,+u}{-o,+o}; do \
-		TEST_OPTS="$$(sed 's/+/ +/g;s/-/ -/g;s/o/o pipefail/g' <<< "$${opts}")" && \
-		export TEST_OPTS && \
-		echo >&2 "Testing $${BASH_VERSION} with shell options $${TEST_OPTS}" && \
-		bats --jobs "$$(nproc --all)" --print-output-on-failure ./tests/*.bats \
-		|| exit 1; \
-	done
+	echo >&2 "Running tests for version $${BASH_VERSION}."
+	bats --jobs "$$(nproc --all)" --print-output-on-failure ./tests/*.bats
 
 DOWNLOAD_URL_PREFIX := https://mirror.kumi.systems/gnu/bash/
 

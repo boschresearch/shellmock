@@ -22,6 +22,19 @@
 # following a specific naming scheme. We avoid complex parsing of arguments with
 # a tool such as getopt or getopts.
 shellmock() {
+  # Ensure that only those shell options are set that shellmock needs.
+  local - # Restrict all changes to shell options to this function.
+  # Options available via "set". Options available via "shopt" cannot easily be
+  # scoped to a function without using a RETURN trap, but we are already uisng
+  # one for another purpose.
+  local opt opts=() flags=()
+  IFS=: read -r -a opts <<< "${SHELLOPTS}"
+  for opt in "${opts[@]}"; do flags+=(+o "${opt}"); done
+  set "${flags[@]}"
+  # Set the ones we expect and need.
+  set -euo pipefail
+
+  # Main code follows.
   # Handle the user requesting a help text.
   local arg
   for arg in "$@"; do

@@ -60,7 +60,7 @@ It is implemented as a shell function with the following sub-commands:
 - `delete` / `unmock`:
   Remove all mocks for an executable.
 - `is-mock`:
-  Determine whether an executable has been mocked by shellmock.
+  Determine whether an executable has been mocked by Shellmock.
 - `help`:
   Provide a help text.
 
@@ -91,6 +91,7 @@ You can jump to the respective section via the following links.
 - [calls](#calls)
   - [Example](#example)
 - [delete](#delete)
+- [is-mock](#is-mock)
 
 ### new
 
@@ -123,7 +124,7 @@ from that point forward, assuming no code changes `PATH`.
 <!-- shellmock-helptext-start -->
 
 Syntax:
-`shellmock config <name> [<exit_code>|forward] [hook:<hook-function>] [1:<argspec> [...]]`
+`shellmock config <name> [<exit_code>|forward[:<arg_adjustment_function>]] [hook:<hook_function>] [1:<argspec> [...]]`
 
 The `config` command defines expectations for calls to your mocked executable.
 You need to define expectations before you can make assertions on your mock.
@@ -137,7 +138,8 @@ The `config` command takes at least two arguments:
 
 1. the `name` of the mock you wish you define expectations for, and
 2. the mock's `exit_code` for invocations matching the expectations configured
-   with this call or the literal string `forward`.
+   with this call or the literal string `forward` optionally followed by the
+   name of a function that may modify the forwarded arguments.
    See [below](#forwarding-calls) for details on forwarding calls.
 
 Next, you may optionally specify the name of a `bash` function that the mock
@@ -170,7 +172,7 @@ shellmock config git 0 1:branch <<< "* main"
 ```
 
 **Note:** The example shows one possible way to define the output of the mock.
-The example uses a _here string_ to define the input to shellmock.
+The example uses a _here string_ to define the input to `shellmock`.
 There are different ways to write to standard input, which even depend on the
 used shell.
 Here strings are known to work for `bash` and `zsh`, for example.
@@ -447,8 +449,8 @@ requests should still be issued.
 Or you may want to mock all calls to `git push` while other commands should
 still be executed.
 
-You can forward specific calls to an executable by specifying the literal string
-`forward` as the second argument to the `config` command.
+You can forward specific calls to an executable by specifying only the literal
+string `forward` as the second argument to the `config` command.
 Calls matching argspecs provided this way will be forwarded to the actual
 executable.
 
@@ -475,6 +477,69 @@ shellmock new git
 shellmock config git 0 1:push
 # Forwarding all other calls. Specific configurations have to go first.
 shellmock config git forward
+```
+
+While forwarding, it might be desirable to modify some arguments.
+You can do so by providing the name of a function that may modify the arguments
+that will be forwarded.
+That function receives all the arguments that the mock has been called with.
+It is expected to pass all arguments that shall be forwarded via the function
+`update_args`, either individually or in bulk.
+Note that the first argument received is the name of the executable to forward
+to.
+That means it is possible to forward to a different executable.
+
+**Example**:
+
+```bash
+# Initialising mock for curl.
+shellmock new curl
+# Forwarding all GET requests, i.e. calls that have the literal string GET as
+# argument anywhere. However, we do not want to forward the `--silent` flag.
+# Thus, we first define a function that modifies the arguments.
+remove_silent_flag() {
+  # Keep all arguments apart from the one we want to skip.
+  for arg in "$@"; do
+    if [[ ${arg} != --silent ]]; then
+      # Report each argument that shall be forwarded individually.
+      update_args "${arg}"
+    fi
+  done
+}
+# Then, we use it to modify the arguments that will be forwarded.
+shellmock config curl forward:remove_silent_flag any:GET
+# This GET request will be forwarded but we will not forward the --silent flag.
+curl -X GET --silent --output shellmock.bash \
+  https://github.com/boschresearch/shellmock/releases/latest/download/shellmock.bash
+```
+
+**Example**:
+
+```bash
+# Initialising mock for git.
+shellmock new git
+# Mocking all push commands, i.e. calls that have the literal string push as
+# first argument.
+shellmock config git 0 1:push
+# Forwarding all other calls. Specific configurations have to go first. When
+# forwarding, we want to make sure all forwarded calls are executed in a
+# specific temporary directory, which we can do via git's `-C` flag.
+# Thus, we first define an environment variable containing the desired path.
+export NEW_GIT_WORKDIR=$(mktemp -d)
+# Then, we define a function that modifies the arguments.
+modify_git_workdir() {
+  # Report the executable to forward to first. We keep the same one.
+  update_args "$1"
+  # Discard the first argument.
+  shift
+  # Report the arguments modifying the workdir first.
+  update_args "-C" "${NEW_GIT_WORKDIR}"
+  # Then, report all the original arguments in bulk.
+  update_args "${@}"
+}
+# Then, we use it to modify the arguments that will be forwarded.
+shellmock config git forward:modify_git_workdir
+# This call will be forwarded but it will use the directory of our choice.
 ```
 
 ### assert
@@ -603,10 +668,10 @@ However, its name is stored in a shell variable.
 To be able to detect such cases, the values of all shell variables would have to
 be known, which is not possible without executing the script.
 
-To support examples like the one above, `shellmock` allows for specifying
-commands that are used indirectly by adding specific directives as comments.
-Lines containing directives generally look like `# shellmock:
-uses-command=cmd1,cmd2` and may be followed by a comment.
+To support examples like the one above, Shellmock allows for specifying commands
+that are used indirectly by adding specific directives as comments.
+Lines containing directives generally look like
+`# shellmock: uses-command=cmd1,cmd2` and may be followed by a comment.
 The above example can thus be updated to report all used executables.
 
 **Example**:
@@ -720,8 +785,8 @@ Use `shellmock global-config getval killparent` to retrieve the current setting.
 #### ensure-assertions
 
 When creating and configuring a mock using Shellmock, you have to make sure to
-assert that your configured mock has been used as expected via the `shellmock
-assert` command.
+assert that your configured mock has been used as expected via the
+`shellmock assert` command.
 Otherwise, you might not detect unexpected calls to your mock, or even the fact
 that your mock has not even been used!
 By default, Shellmock will fail a test that creates a mock without also running

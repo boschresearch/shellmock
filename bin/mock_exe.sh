@@ -41,12 +41,14 @@ env_var_check() {
     if ! [[ -d ${!dir-} ]]; then
       echo >&2 "Variable ${dir} not defined or no directory."
       _kill_parent
+      return 1
     fi
   done
   for var in "${vars[@]}"; do
     if [[ -z ${!var-} ]]; then
       echo >&2 "Variable ${var} not defined."
       _kill_parent
+      return 1
     fi
   done
 }
@@ -338,17 +340,45 @@ should_forward() {
   local cmd_spec="$1"
   local rc_env_var
   rc_env_var="MOCK_RC_${cmd_spec}"
-  [[ -n ${!rc_env_var-} && ${!rc_env_var} == forward ]]
+  [[ -n ${!rc_env_var-} ]] \
+    && [[ ${!rc_env_var} == forward || ${!rc_env_var} == "forward:"* ]]
 }
 
 # Forward the arguments to the first executable in PATH that is not controlled
 # by shellmock, that is the first executable not in __SHELLMOCK_MOCKBIN. We can
 # also forward to functions that we stored, but those functions cannot access
-# shell variables of the surrounding shell.
+# shell variables of the surrounding shell. If requested, we will first call an
+# exported shell function that may modify the arguments that we forward.
 forward() {
-  local cmd=$1
-  shift
+  local cmd_spec=$1
+  local cmd=$2
+  shift 2
   local args=("$@")
+
+  # Update arguments if requested.
+  local rc_env_var
+  rc_env_var="MOCK_RC_${cmd_spec}"
+  if [[ ${!rc_env_var} == "forward:"* ]]; then
+    local forward_fn="${!rc_env_var##forward:}"
+    local updated_args=()
+    if ! {
+      mapfile -t -d $'\0' updated_args < <(
+        # The function will be invoked indirectly by the forward function.
+        # shellcheck disable=SC2317
+        update_args() {
+          local arg && for arg in "$@"; do printf -- '%s\0' "${arg}"; done
+        }
+        "${forward_fn}" "${cmd}" "${args[@]}"
+      ) && wait $!
+    }; then
+      echo >&2 "SHELLMOCK: failed to call function ${forward_fn@Q} that" \
+        "shall modify arguments forwarded to ${cmd@Q}."
+      _kill_parent
+      return 1
+    fi
+    cmd=${updated_args[0]}
+    args=("${updated_args[@]:1}")
+  fi
 
   local exe
   local path="${__SHELLMOCK_FUNCSTORE}:${PATH}"
@@ -359,6 +389,7 @@ forward() {
   then
     echo >&2 "SHELLMOCK: failed to find executable to forward to: ${cmd}"
     _kill_parent
+    return 1
   fi
   echo >&2 "SHELLMOCK: forwarding call: ${exe@Q} ${*@Q}"
   exec "${exe}" "${args[@]}"
@@ -386,11 +417,11 @@ main() {
   # it cannot be found, either exit with an error or kill the parent process.
   local cmd_spec
   cmd_spec="$(find_matching_argspec "${outdir}" "${cmd}" "${cmd_b32}" "$@")"
+  run_hook "${cmd_spec}" "$@"
   if should_forward "${cmd_spec}"; then
-    forward "${cmd}" "$@"
+    forward "${cmd_spec}" "${cmd}" "$@"
   else
     provide_output "${cmd_spec}"
-    run_hook "${cmd_spec}" "$@"
     return_with_code "${cmd_spec}"
   fi
 }
@@ -399,7 +430,6 @@ main() {
 # which simplifies testing.
 if [[ -z ${BASH_SOURCE[0]-} ]] || [[ ${BASH_SOURCE[0]} == "${0}" ]]; then
   set -euo pipefail
+  shopt -s inherit_errexit
   main "$@"
-else
-  :
 fi
