@@ -73,7 +73,7 @@ binary_deps_check() {
     echo >&2 "SHELLMOCK: Optional executable flock not found." \
       "Please install for best performance."
   fi
-  if [[ ${has_err} -ne 0 ]]; then
+  if [[ ${has_err} != 0 ]]; then
     _kill_parent
     return 1
   fi
@@ -97,7 +97,7 @@ get_and_ensure_outdir() {
   local _flock=flock
   if
     ! command -v flock &> /dev/null \
-      || [[ ${__SHELLMOCK_TESTING_WO_FLOCK-0} -eq 1 ]]
+      || [[ ${__SHELLMOCK_TESTING_WO_FLOCK-0} == 1 ]]
   then
     _flock=true
   fi
@@ -247,7 +247,7 @@ _kill_parent() {
   # Do not kill the parent process if it is a bats process. If we did, bats
   # would no longer be able to track the test.
   if
-    [[ ${__SHELLMOCK__KILLPARENT-} -ne 1 ]] || _is_bats_process "${parent}"
+    [[ ${__SHELLMOCK__KILLPARENT-} != 1 ]] || _is_bats_process "${parent}"
   then
     return 0
   fi

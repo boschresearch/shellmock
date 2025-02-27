@@ -104,7 +104,7 @@ setup() {
   # calls hadn't happened, this line would error out and report the problem.
   shellmock assert expectations git
   # Assert on the exit code.
-  [[ ${status} -eq 0 ]]
+  [[ ${status} == 0 ]]
 }
 
 @test "the success case with a missing branch" {
@@ -126,7 +126,7 @@ setup() {
   shellmock config git 0 1:checkout regex-2:"^feature/.*$"
   run "${script}" "feature/some-feature"
   shellmock assert expectations git
-  [[ ${status} -eq 0 ]]
+  [[ ${status} == 0 ]]
 }
 
 @test "the failure case with empty input" {
@@ -139,7 +139,7 @@ setup() {
   run "${script}"
   shellmock assert expectations git
   # Assert on the exit code. We expect a non-zero exit code.
-  [[ ${status} -ne 0 ]]
+  [[ ${status} != 0 ]]
 }
 ```
 
@@ -152,6 +152,8 @@ Doing so will allow you to test individual functions.
 You can also mock functions called by your own functions.
 Please have a look at [shellmock's own tests][shellmock-tests] for what is
 possible.
+
+<!-- link-category: how to set up and use -->
 
 [bats-core]: https://bats-core.readthedocs.io/ "bats core website"
 [bats-guide]: https://bats-core.readthedocs.io/en/stable/tutorial.html "bats guide"

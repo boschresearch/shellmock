@@ -27,7 +27,7 @@ __shellmock_mktemp() {
   local template="${what// /_}.XXXXXXXXXX"
   PATH="${__SHELLMOCK_ORGPATH}" mkdir -p "${base}"
   dir=$(PATH="${__SHELLMOCK_ORGPATH}" mktemp -d -p "${base}" "${template}")
-  if [[ ${has_bats} -eq 0 ]]; then
+  if [[ ${has_bats} == 0 ]]; then
     echo >&2 "Keeping ${what} in: ${dir}"
   fi
   echo "${dir}"
@@ -49,7 +49,7 @@ __shellmock_internal_init() {
     has_bats=0
   fi
 
-  if [[ ${has_bats} -eq 0 ]]; then
+  if [[ ${has_bats} == 0 ]]; then
     echo >&2 "Running outside of bats, temporary directories will be kept."
   fi
 
@@ -97,7 +97,7 @@ __shellmock_internal_init() {
   declare -gx __SHELLMOCK_TRAP
   local return_trap
   return_trap="$(trap -p -- RETURN)"
-  if [[ ${has_bats} -eq 1 ]] && [[ -z ${return_trap} ]]; then
+  if [[ ${has_bats} == 1 ]] && [[ -z ${return_trap} ]]; then
     trap -- "__shellmock_internal_trap" RETURN
     __SHELLMOCK__ENSURE_ASSERTIONS=1
     __SHELLMOCK_TRAP="$(trap -p -- RETURN)"
@@ -127,6 +127,11 @@ __shellmock_internal_bash_version_check() {
   minor="${BASH_VERSION#*.}"
   minor="${minor%%.*}"
 
+  if [[ -n ${major//[[:digit:]]/} || -n ${minor//[[:digit:]]/} ]]; then
+    echo >&2 "Malformed bash version string ${BASH_VERSION@Q} detected."
+    return 1
+  fi
+
   # Error out if the version is too low.
   if [[ ${major} -lt 4 ]] || [[ ${major} -eq 4 && ${minor} -lt 4 ]]; then
     echo >&2 "Shellmock requires bash >= 4.4 but ${BASH_VERSION} detected."
@@ -137,7 +142,7 @@ __shellmock_internal_bash_version_check() {
 # Check whether PATH changed since shellmock has been initialised. If it has
 # changed, then shellmock's mocks might no longer be used preferentially.
 __shellmock_internal_pathcheck() {
-  if [[ ${__SHELLMOCK__CHECKPATH} -eq 1 ]] \
+  if [[ ${__SHELLMOCK__CHECKPATH} == 1 ]] \
     && [[ ${PATH} != "${__SHELLMOCK_PATH}" ]]; then
 
     echo >&2 "WARNING: value for PATH has changed since loading shellmock, " \
@@ -149,7 +154,7 @@ __shellmock_internal_pathcheck() {
 # initialised. If it has changed, then shellmock's automatic assertion detection
 # will likely not work anymore.
 __shellmock_internal_trapcheck() {
-  if [[ ${__SHELLMOCK__ENSURE_ASSERTIONS} -eq 1 ]] \
+  if [[ ${__SHELLMOCK__ENSURE_ASSERTIONS} == 1 ]] \
     && [[ "$(trap -p -- RETURN)" != "${__SHELLMOCK_TRAP}" ]]; then
 
     echo >&2 "WARNING: RETURN trap has changed since loading shellmock," \
@@ -168,7 +173,7 @@ __shellmock_internal_trap() {
   # Do not perform any actions if we are not being called by the expected bats
   # test function.
   if
-    [[ ${__SHELLMOCK__ENSURE_ASSERTIONS} -eq 1 &&
+    [[ ${__SHELLMOCK__ENSURE_ASSERTIONS} == 1 &&
       "$(caller 0)" == *" ${BATS_TEST_NAME-} "* ]]
   then
     local defined_cmds
@@ -198,9 +203,9 @@ __shellmock_internal_trap() {
     # signal a test failure from within a return trap. When running tests, we
     # only return, though, because bats would be unable to track the test if we
     # were to call exit here.
-    if [[ ${__SHELLMOCK_TESTING_TRAP-0} -eq 1 ]]; then
+    if [[ ${__SHELLMOCK_TESTING_TRAP-0} == 1 ]]; then
       return "${has_err}"
-    elif [[ ${has_err} -ne 0 ]]; then
+    elif [[ ${has_err} != 0 ]]; then
       exit "${has_err}"
     fi
   fi

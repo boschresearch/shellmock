@@ -174,14 +174,15 @@ EOF
     '#shellmock:uses-command=cmd1,cmd with spaces,cmd2 # followed by a comment'
     '     #   shellmock: uses-command=cmd2,cmd2'
   )
-  run -0 shellmock commands -c <<< "$(_join $'\n' "${directives[@]}")"
+  run -0 --separate-stderr shellmock commands -c \
+    <<< "$(_join $'\n' "${directives[@]}")"
 
   exes=(
     "cmd with spaces:1"
     "cmd1:2"
     "cmd2:3"
   )
-  [[ ${output} == $(_join $'\n' "${exes[@]}") ]]
+  [[ ${output} == "$(_join $'\n' "${exes[@]}")" ]]
 }
 
 @test "warning about unknown directives" {
@@ -204,7 +205,7 @@ EOF
   # Ensure that the mock has actually been called 30 times. This is a soft check
   # for the absence of race conditions.
   outputs=("${__SHELLMOCK_OUTPUT}/"*"/"*)
-  [[ ${#outputs[@]} -eq 50 ]]
+  [[ ${#outputs[@]} == 50 ]]
 }
 
 @test "modifying arguments" {

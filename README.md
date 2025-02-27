@@ -32,8 +32,6 @@ You can find our documentation [below](#documentation-overview).
 Inspiration for `shellmock` was taken from testing frameworks such as `pytest`
 and `golang/mock`.
 
-[bats-core]: https://bats-core.readthedocs.io/ "bats core website"
-
 ## Installation
 
 To get started, just head over to the [releases] and download the
@@ -71,22 +69,19 @@ To run the [`commands` command](./docs/usage.md#commands), you also need a
 For optimal performance, install `flock`, which is contained within the
 `util-linux` package on Debian-based systems.
 
-[bats-npm-install]: https://bats-core.readthedocs.io/en/stable/installation.html#any-os-npm
-[golang]: https://go.dev/doc/install
-
 ## Documentation Overview
 
 - Usage documentation:
-  - [Quickstart guide](./docs/quickstart.md):
+  - [Quickstart guide]:
     Read this page if this is your first time using `shellmock` and you want to
     get started.
-  - [How to](./docs/howto.md):
+  - [How to]:
     Read this page if you want to know how to go about creating your tests with
     `shellmock` in general.
-  - [Detailed example](./docs/example.md):
+  - [Detailed example]:
     Read this page if you want to see how `shellmock` can be used to create
     extensive tests of a script of medium complexity.
-  - [Command reference](./docs/usage.md):
+  - [Command reference]:
     Read this page if you want to know about all of `shellmock`'s features or
     have questions about a specific command.
   - [shellmock's own tests][shellmock-tests]:
@@ -101,12 +96,8 @@ For optimal performance, install `flock`, which is contained within the
     - Create a mock that is writing a fixed string to stdout
     - Fail a test by killing the parent process when there is an unexpected call
 - Technical documentation:
-  - [Building shellmock](./docs/build.md):
+  - [Building shellmock]:
     Read this page if you want to know how to generate the release artefacts.
-
-[shellmock-tests]: ./tests/main.bats "shellmock tests"
-[releases]: https://github.com/boschresearch/shellmock/releases "releases"
-[latest-release]: https://github.com/boschresearch/shellmock/releases/latest "latest release"
 
 ## Feedback
 
@@ -120,12 +111,12 @@ But we are eager to hear your feedback on how we could improve!
 
 ### Maintainers
 
-['Torsten Long'](https://github.com/razziel89)
+['Torsten Long']
 
 ### License
 
 Shellmock is open-sourced under the Apache-2.0 license.
-See the [LICENSE](./LICENSE) file for details.
+See the [LICENSE] file for details.
 
 > Copyright (c) 2022 - for information on the respective copyright owner see the
 > NOTICE file or the repository https://github.com/boschresearch/shellmock
@@ -159,3 +150,31 @@ See the [LICENSE](./LICENSE) file for details.
   License for the specific language governing permissions and limitations under
   the License.
 -->
+
+<!-- link-category: dependencies -->
+
+[bats-core]: https://bats-core.readthedocs.io/ "bats core website"
+[bats-npm-install]: https://bats-core.readthedocs.io/en/stable/installation.html#any-os-npm
+[golang]: https://go.dev/doc/install
+[LICENSE]: ./LICENSE
+
+<!-- link-category: docs -->
+
+[Building shellmock]: ./docs/build.md
+[Command reference]: ./docs/usage.md
+[Detailed example]: ./docs/example.md
+[How to]: ./docs/howto.md
+[Quickstart guide]: ./docs/quickstart.md
+
+<!-- link-category: how to set up and use -->
+
+[shellmock-tests]: ./tests/main.bats "shellmock tests"
+
+<!-- link-category: maintainer -->
+
+['Torsten Long']: https://github.com/razziel89
+
+<!-- link-category: releases -->
+
+[latest-release]: https://github.com/boschresearch/shellmock/releases/latest "latest release"
+[releases]: https://github.com/boschresearch/shellmock/releases "releases"

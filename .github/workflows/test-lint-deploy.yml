@@ -92,8 +92,8 @@ jobs:
           chmod +x mdslw
           sudo mv mdslw /usr/local/bin
         env:
-          MDSLW_VERSION: 0.12.4
-          MDSLW_SHA256: 2899399d14c230f3bc3e4d8b275a1e7a61f061e65fc58e79a0ef1802c1c534bf
+          MDSLW_VERSION: 0.15.1
+          MDSLW_SHA256: 2ad8c1762e00f14a39585c639e0922511e1695dc5ac131f54d4ae39454ebccf3
           BASE_URL: "https://github.com/razziel89/mdslw/releases/download"
 
       - uses: actions/checkout@v3

@@ -124,24 +124,21 @@ Otherwise please use a personal email address.
 
 ## Maintain Copyright holder / Contributor list
 
-Each contributor is responsible for identifying themselves in the
-[NOTICE](./NOTICE) file, the project's list of copyright holders and authors.
+Each contributor is responsible for identifying themselves in the [NOTICE] file,
+the project's list of copyright holders and authors.
 Please add the respective information corresponding to the Signed-off-by tag as
 part of your first pull request.
 
 If you are a developer who is authorized to contribute to Shellmock on behalf of
 your employer, then add your company / organization to the list of copyright
-holders in the [NOTICE](./NOTICE) file.
+holders in the [NOTICE] file.
 As author of a corporate contribution you can also add your name and corporate
 email address as in the Signed-off-by tag.
 
 If your contribution is covered by this project's DCO's clause "(c) The
 contribution was provided directly to me by some other person who certified (a)
 or (b) and I have not modified it", please add the appropriate copyright
-holder(s) to the [NOTICE](./NOTICE) file as part of your contribution.
-
-[DCO]: https://developercertificate.org/
-[SubmittingPatches]: https://github.com/wking/signed-off-by/blob/7d71be37194df05c349157a2161c7534feaf86a4/Documentation/SubmittingPatches
+holder(s) to the [NOTICE] file as part of your contribution.
 
 <!---
   Copyright (c) 2022 - for information on the respective copyright owner
@@ -160,3 +157,7 @@ holder(s) to the [NOTICE](./NOTICE) file as part of your contribution.
   License for the specific language governing permissions and limitations under
   the License.
 -->
+
+[DCO]: https://developercertificate.org/
+[NOTICE]: ./NOTICE
+[SubmittingPatches]: https://github.com/wking/signed-off-by/blob/7d71be37194df05c349157a2161c7534feaf86a4/Documentation/SubmittingPatches

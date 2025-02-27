@@ -97,10 +97,13 @@ What happens in details:
      That is, the mock has not been called with at least one set of arguments
      that match a previous call to `shellmock config`.
 
-Please have a look at the [full command reference](./usage.md) for all details.
-You can also have a look at [this detailed example](./example.md) or
+Please have a look at the [full command reference] for all details.
+You can also have a look at [this detailed example] or
 [shellmock's own tests][shellmock-tests].
-You may also check out our [how-to for creating tests](./howto.md).
+You may also check out our [how-to for creating tests].
 
-[shellmock-tests]: ../tests/main.bats "shellmock tests"
 [bats-core]: https://bats-core.readthedocs.io/ "bats core website"
+[full command reference]: ./usage.md
+[how-to for creating tests]: ./howto.md
+[shellmock-tests]: ../tests/main.bats "shellmock tests"
+[this detailed example]: ./example.md

@@ -144,7 +144,7 @@ setup() {
     echo >&2 "Call did not fail."
     exit 1
   fi
-  [[ $(shellmock global-config getval killparent) -eq 1 ]]
+  [[ $(shellmock global-config getval killparent) == 1 ]]
   # Nothing has been written to the output.
   [[ -z ${output} ]]
 
@@ -154,7 +154,7 @@ setup() {
   # In this case, the use of ";" causes the exit code of the call to "my_exe"
   # not to influence the exit code of the call to "sh".
   output=$(sh -c 'my_exe asdf; echo stuff')
-  [[ $(shellmock global-config getval killparent) -eq 0 ]]
+  [[ $(shellmock global-config getval killparent) == 0 ]]
   [[ ${output} == "stuff" ]]
 }
 
@@ -467,6 +467,58 @@ EOF
   [[ ${suggestion} == "${expectation}" ]]
 }
 
+@test "logging mock calls in simple format" {
+  # A mock configured like this accepts any argument and always exits with
+  # success.
+  shellmock new git
+  shellmock config git 0
+  # Call the mock several times.
+  git branch -l <<< "nu'll"        # List existing branches
+  git checkout -b 'strange\branch' # Create a new branch and check it out.
+  git reset --soft 'with"quotes'   # Reset the repo to an old state.
+  # Retrieve call details. The command will always fail to emphasise that it
+  # should only be used for mock development. However, to validate what was
+  # written to stdout for this test, we ignore the return value here if it is
+  # the expected "1".
+  run -1 --separate-stderr shellmock calls git --simple
+  # Check that we generated what we expected to.
+  local expected
+  expected=$(
+    cat << 'EOF'
+git branch -l <<< nu'll
+git checkout -b strange\branch <<< ''
+git reset --soft with"quotes <<< ''
+EOF
+  )
+  diff <(echo "${expected}") <(echo "${output}")
+}
+
+@test "logging mock calls in quoted format" {
+  # A mock configured like this accepts any argument and always exits with
+  # success.
+  shellmock new git
+  shellmock config git 0
+  # Call the mock several times.
+  git branch -l <<< "nu'll"        # List existing branches
+  git checkout -b 'strange\branch' # Create a new branch and check it out.
+  git reset --soft 'with"quotes'   # Reset the repo to an old state.
+  # Retrieve call details. The command will always fail to emphasise that it
+  # should only be used for mock development. However, to validate what was
+  # written to stdout for this test, we ignore the return value here if it is
+  # the expected "1".
+  run -1 --separate-stderr shellmock calls git --quoted
+  # Check that we generated what we expected to.
+  local expected
+  expected=$(
+    cat << 'EOF'
+'git' 'branch' '-l' <<< 'nu'\''ll'
+'git' 'checkout' '-b' 'strange\branch' <<< ''
+'git' 'reset' '--soft' 'with"quotes' <<< ''
+EOF
+  )
+  diff <(echo "${expected}") <(echo "${output}")
+}
+
 @test "disallowing specifying multiple arguments per index" {
   shellmock new my_exe
   # Here, "i" will take the value of "2", which has already been specified.
@@ -493,10 +545,20 @@ indices, cannot continue: 2 1"
 
 @test "refusing to work with old bash versions" {
   if output=$(BASH_VERSION=1.2 load ../shellmock 2>&1); then
+    echo >&2 "Expected failure to load shellmock\."
+    exit 1
+  else
+    expected="Shellmock requires bash >= 4\.4 but 1\.2 detected."
+    grep -x "${expected}" <<< "${output}"
+  fi
+}
+
+@test "refusing to work with malformed bash version" {
+  if output=$(BASH_VERSION=no.digits.here load ../shellmock 2>&1); then
     echo >&2 "Expected failure to load shellmock."
     exit 1
   else
-    expected="Shellmock requires bash >= 4.4 but 1.2 detected."
+    expected="Malformed bash version string 'no\.digits\.here' detected."
     grep -x "${expected}" <<< "${output}"
   fi
 }
@@ -584,7 +646,7 @@ indices, cannot continue: 2 1"
     local expected=$1
     local actual
     actual=$(wc -l < "${BATS_TEST_TMPDIR}/called")
-    [[ ${actual} -eq ${expected} ]]
+    [[ ${actual} == "${expected}" ]]
   }
 
   run -2 _my_fn
@@ -657,7 +719,7 @@ indices, cannot continue: 2 1"
     local expected=$1
     local actual
     actual=$(wc -l < "${BATS_TEST_TMPDIR}/called")
-    [[ ${actual} -eq ${expected} ]]
+    [[ ${actual} == "${expected}" ]]
   }
 
   run -2 _forward_fn

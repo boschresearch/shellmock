@@ -58,8 +58,8 @@ setup() {
   org_val="$(shellmock global-config getval killparent)"
   shellmock global-config setval killparent 0
   new_val="$(shellmock global-config getval killparent)"
-  [[ ${org_val} -eq 1 ]]
-  [[ ${new_val} -eq 0 ]]
+  [[ ${org_val} == 1 ]]
+  [[ ${new_val} == 0 ]]
 }
 
 @test "using an unknown subcommand for global config" {
@@ -144,7 +144,7 @@ setup() {
   run --separate-stderr do_something_and_echo_to_stderr
 
   shellmock assert expectations some_executable
-  [[ ${status} -eq 0 ]]
+  [[ ${status} == 0 ]]
   [[ -z ${output} ]]
   [[ ${stderr} == "I write to stderr." ]]
 }

@@ -75,11 +75,11 @@ __shellmock__commands() {
     # Only output if it is neither a currently defined function or a built-in.
     if
       [[ -z ${builtins["${cmd}"]-} ]] \
-        && [[ ${check_functions} -eq 1 ||
+        && [[ ${check_functions} == 1 ||
           $(type -t "${cmd}" || :) != function ]]
     then
       # Adjust output format as requested.
-      if [[ ${usage_counts} -eq 1 ]]; then
+      if [[ ${usage_counts} == 1 ]]; then
         echo "${tmp}"
       else
         echo "${cmd}"

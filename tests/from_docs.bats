@@ -78,7 +78,7 @@ script() {
   # and report the problem.
   shellmock assert expectations git
   # Assert on the exit code.
-  [[ ${status} -eq 0 ]]
+  [[ ${status} == 0 ]]
 }
 
 @test "the success case with a missing branch" {
@@ -100,7 +100,7 @@ script() {
   shellmock config git 0 1:checkout regex-2:"^feature/.*$"
   run "${script}" "feature/some-feature"
   shellmock assert expectations git
-  [[ ${status} -eq 0 ]]
+  [[ ${status} == 0 ]]
 }
 
 @test "the failure case with empty input" {
@@ -110,5 +110,5 @@ script() {
   run "${script}"
   shellmock assert expectations git
   # Assert on the exit code. We expect a non-zero exit code.
-  [[ ${status} -ne 0 ]]
+  [[ ${status} != 0 ]]
 }

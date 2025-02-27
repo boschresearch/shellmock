@@ -71,7 +71,7 @@ ENDOFFILE
       if [[ ${line} == '<!-- shellmock-helptext-end -->' ]]; then
         do_print=0
       fi
-      if [[ ${do_print} -eq 1 ]]; then
+      if [[ ${do_print} == 1 ]]; then
         echo "${line}"
       fi
       if [[ ${line} == '<!-- shellmock-helptext-start -->' ]]; then

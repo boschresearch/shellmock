@@ -420,8 +420,6 @@ There are three recommended ways for defining multi-line output, namely
 - [having bash interpret escape sequences][bash-ansi-escape] using a character
   sequence of the form `$'string'`.
 
-[bash-ansi-escape]: https://www.gnu.org/software/bash/manual/html_node/ANSI_002dC-Quoting.html#ANSI_002dC-Quoting
-
 **Example**:
 
 ```bash
@@ -609,12 +607,10 @@ Executable/function and count will be separated by a colon.
 
 The `commands` command is not fully implemented in `bash` and with default shell
 utilities.
-Instead, it uses some bundled [Golang code](../go) to perform the extraction of
-used commands.
+Instead, it uses some bundled [Golang code] to perform the extraction of used
+commands.
 Thus, in order to use the `commands` command, you have to have a
 [Golang][golang] toolchain installed on your system.
-
-[golang]: https://go.dev/doc/install
 
 #### Examples
 
@@ -825,7 +821,7 @@ setting.
 <!-- shellmock-helptext-start -->
 
 Syntax:
-`shellmock calls <name> [--plain|--json]`
+`shellmock calls <name> [--plain|--json|--simple|--quoted]`
 
 The `calls` command retrieves information about past calls to your mock.
 The `calls` command is useful when developing mocks.
@@ -836,8 +832,16 @@ The `calls` command takes one mandatory and one optional argument.
 The first, mandatory argument is the name of the mock executable for which you
 wish to retrieve call details.
 The second, optional argument specifies the output format.
-The output format defaults to `--plain`, but you can also choose JSON, which
-simplifies automated processing or may be easier to view.
+The output format defaults to `--plain`.
+By choosing `--json`, you will get the same content but in JSON form, which
+simplifies automated downstream processing.
+By choosing `--simple`, you will see the command followed by all the arguments
+without quoting in a way similar what would be typed in a terminal.
+If neither command name nor any of the arguments nor standard input contain a
+newline character, then the output will be on a single line.
+By choosing `--quoted`, you will see output like that of `--simple` but with
+applied shell quoting.
+Thus, the output for each call is guaranteed to be on a single line.
 
 #### Example
 
@@ -946,6 +950,26 @@ the output would be as follows instead:
 ```
 <!-- prettier-ignore-end -->
 
+If you were to replace `--plain` by `--simple` instead, the output would be as
+follows instead:
+
+```
+git branch -l <<< ''
+git checkout -b new-branch <<< ''
+git branch -l <<< null
+git branch -d new-branch <<< ''
+```
+
+If you were to replace `--plain` by `--quoted` instead, the output would be as
+follows instead:
+
+```
+'git' 'branch' '-l' <<< ''
+'git' 'checkout '-b' 'new-branch' <<< ''
+'git' 'branch' '-l' <<< 'null'
+'git' 'branch '-d' 'new-branch' <<< ''
+```
+
 ### delete
 
 <!-- shellmock-helptext-start -->
@@ -993,3 +1017,7 @@ else
   echo "Otherwise."
 fi
 ```
+
+[bash-ansi-escape]: https://www.gnu.org/software/bash/manual/html_node/ANSI_002dC-Quoting.html#ANSI_002dC-Quoting
+[golang]: https://go.dev/doc/install
+[Golang code]: ../go

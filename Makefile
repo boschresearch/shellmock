@@ -99,7 +99,7 @@ COVERAGE_FAILED_MESSAGE := \
 	https://github.com/SimonKagstrom/kcov/issues/234\#issuecomment-453929674
 
 coverage: test
-	if [[ "$$(id -ru)" -eq 0 ]]; then \
+	if [[ "$$(id -ru)" == 0 ]]; then \
 		echo >&2 "$(COVERAGE_FAILED_MESSAGE)"; exit 1; \
 	fi
 	# Generate coverage reports.

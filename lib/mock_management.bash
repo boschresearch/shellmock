@@ -119,7 +119,7 @@ __shellmock_assert_no_duplicate_argspecs() {
     fi
     count=${arg_idx_count["${idx}"]-0}
     arg_idx_count["${idx}"]=$((count + 1))
-    if [[ ${count} -eq 1 ]]; then
+    if [[ ${count} == 1 ]]; then
       duplicate_arg_indices+=("${idx}")
     fi
   done
@@ -192,7 +192,7 @@ __shellmock__config() {
     fi
     args+=("${arg}")
   done
-  if [[ ${has_err} -ne 0 ]]; then
+  if [[ ${has_err} != 0 ]]; then
     return 1
   fi
 
@@ -332,7 +332,7 @@ __shellmock__assert() {
         fi
       done
     ) && wait $! || return 1
-    if [[ ${has_err} -ne 0 ]]; then
+    if [[ ${has_err} != 0 ]]; then
       echo >&2 "SHELLMOCK: got at least one unexpected call for mock ${cmd}."
       return 1
     fi
@@ -379,7 +379,7 @@ __shellmock__assert() {
         )
       fi
     done
-    if [[ ${has_err} -ne 0 ]]; then
+    if [[ ${has_err} != 0 ]]; then
       echo >&2 "SHELLMOCK: at least one expected call for mock ${cmd}" \
         "was not issued."
       return 1
@@ -417,7 +417,7 @@ __shellmock_jsonify_array() {
   # Assume first line will already be indented properly by caller.
   echo "["
   for idx in "${!args[@]}"; do
-    if [[ $((idx + 1)) -ne ${#args[@]} ]]; then
+    if [[ $((idx + 1)) != "${#args[@]}" ]]; then
       local sep=,
     else
       local sep=
@@ -481,7 +481,7 @@ __shellmock__calls() {
     case ${format} in
     --plain)
       # Split records using one empty line.
-      if [[ ${call_num} -ne 1 ]]; then
+      if [[ ${call_num} != 1 ]]; then
         echo
       fi
       PATH="${__SHELLMOCK_ORGPATH}" cat << EOF
@@ -492,9 +492,18 @@ stdin:      ${stdin}
 suggestion: ${suggestion}
 EOF
       ;;
+    --simple)
+      if [[ -z ${stdin} ]]; then
+        stdin="''"
+      fi
+      (IFS=" " && printf -- "%s %s <<< %s\n" "${cmd}" "${args[*]}" "${stdin}")
+      ;;
+    --quoted)
+      (IFS=" " && printf -- "%s %s <<< %s\n" "${cmd@Q}" "${args[*]@Q}" "${stdin@Q}")
+      ;;
     --json)
       # JSON-quote all strings. Use 2 spaces as indentation.
-      if [[ ${call_num} -eq 1 ]]; then
+      if [[ ${call_num} == 1 ]]; then
         echo $'[\n  {'
       fi
       PATH="${__SHELLMOCK_ORGPATH}" cat << EOF
@@ -504,7 +513,7 @@ EOF
     "stdin": "$(__shellmock_jsonify_string "${stdin}")",
     "suggestion": "$(__shellmock_jsonify_string "${suggestion}")"
 EOF
-      if [[ ${call_num} -ne ${#call_ids[@]} ]]; then
+      if [[ ${call_num} != "${#call_ids[@]}" ]]; then
         echo $'  },\n  {'
       else
         echo $'  }\n]'

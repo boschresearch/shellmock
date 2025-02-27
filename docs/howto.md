@@ -191,7 +191,7 @@ download_release() {
 main() {
   local releases
   mapfile -t releases < <(get_release_names)
-  if [[ ${#releases[@]} -eq 0 ]]; then
+  if [[ ${#releases[@]} == 0 ]]; then
     echo >&2 "Failed to get releases or no releases available."
     return 1
   fi
@@ -406,7 +406,7 @@ RELEASE_DATA_FOR_TESTS='
   run main <<< ""
   # Make assertions.
   shellmock assert expectations curl
-  [[ ${status} -eq 0 ]]
+  [[ ${status} == 0 ]]
   [[ ${output} == *"Downloading release 0.4.0"* ]]
 }
 
@@ -419,7 +419,7 @@ RELEASE_DATA_FOR_TESTS='
   run main <<< "0.0.0"
   # Make assertions.
   shellmock assert expectations curl
-  [[ ${status} -ne 0 ]]
+  [[ ${status} != 0 ]]
   [[ ${output} == *"Release 0.0.0 not found."* ]]
 }
 ```
