@@ -18,6 +18,8 @@
 
 # Quickstart Guide
 
+First up, if we haven't already done so, we follow [these steps][installation]
+to download and install `shellmock`.
 Now that we have downloaded `shellmock` to the root directory of our repository
 and installed [bats-core] on our system, we can create a simple test.
 We put the following in a file called `test.bats`:
@@ -105,5 +107,6 @@ You may also check out our [how-to for creating tests].
 [bats-core]: https://bats-core.readthedocs.io/ "bats core website"
 [full command reference]: ./usage.md
 [how-to for creating tests]: ./howto.md
+[installation]: ../#installation
 [shellmock-tests]: ../tests/main.bats "shellmock tests"
 [this detailed example]: ./example.md

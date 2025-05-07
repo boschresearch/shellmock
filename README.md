@@ -35,10 +35,10 @@ and `golang/mock`.
 ## Installation
 
 To get started, just head over to the [releases] and download the
-[latest release][latest-release].
-Then, you can write your [bats-core]-based tests.
-Just make sure to use `load shellmock` in your `setup` function.
-See [below](#documentation-overview) for `shellmock`'s documentation.
+[latest release][latest-release] to the root directory of your repository.
+We recommend to add the downloaded file `shellmock.bash` to your `.gitignore`.
+Please see [below](#documentation-overview) for `shellmock`'s detailed
+documentation.
 
 ### Dependencies
 
@@ -52,7 +52,8 @@ The following tools are needed to use `shellmock`:
 - `mktemp`
 - `rm`
 
-On Debian-based systems, they can be installed via:
+On Debian-based systems, if they are not already pre-installed, they can be
+installed via:
 
 ```bash
 sudo apt install -yqq bash coreutils
