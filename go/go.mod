@@ -16,6 +16,6 @@
 
 module main
 
-go 1.22.1
+go 1.25.1
 
-require mvdan.cc/sh/v3 v3.8.0
+require mvdan.cc/sh/v3 v3.12.0

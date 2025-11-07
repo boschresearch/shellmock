@@ -57,6 +57,21 @@ __shellmock_internal_init() {
   # Remember the original value of "${PATH}" when shellmock was loaded.
   __SHELLMOCK_ORGPATH="${PATH}"
 
+  local cmd has_err=0
+  for cmd in base32 cat chmod mkdir mktemp rm; do
+    if ! PATH="${__SHELLMOCK_ORGPATH}" command -v "${cmd}" &> /dev/null; then
+      echo >&2 "Required executable ${cmd} not found."
+      has_err=1
+    fi
+  done
+  if ! command -v flock &> /dev/null; then
+    echo >&2 "Optional executable flock not found." \
+      "Please install for best performance."
+  fi
+  if [[ ${has_err} != 0 ]]; then
+    return 1
+  fi
+
   # Modify PATH to permit injecting executables.
   declare -gx __SHELLMOCK_MOCKBIN
   __SHELLMOCK_MOCKBIN="$(__shellmock_mktemp "${has_bats}" "mocks")"

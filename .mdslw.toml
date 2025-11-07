@@ -5,4 +5,4 @@ ignores = ""
 lang = "ac"
 max-width = 80
 suppressions = ""
-upstream = "prettier --parser=markdown"
+upstream = "prettier --parser=markdown --tab-width=4"

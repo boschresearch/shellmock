@@ -32,7 +32,7 @@ jobs:
   build-deploy:
     timeout-minutes: 45
 
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Install system dependencies
@@ -42,7 +42,7 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -qqy --no-install-recommends \
             build-essential ca-certificates coreutils curl gcc git jq \
-            kcov make parallel shellcheck
+            make parallel shellcheck
 
       - name: Install bats
         run: |
@@ -56,8 +56,8 @@ jobs:
 
       - name: Install shfmt
         env:
-          VERSION: 3.7.0
-          SHA256: 0264c424278b18e22453fe523ec01a19805ce3b8ebf18eaf3aadc1edc23f42e3
+          VERSION: 3.12.0
+          SHA256: d9fbb2a9c33d13f47e7618cf362a914d029d02a6df124064fff04fd688a745ea
           URL: https://github.com/mvdan/sh/releases/download
         run: |
           curl -o shfmt --location \
@@ -72,18 +72,16 @@ jobs:
           echo "${NVMINSTALL_SHA256} install_nvm.sh" | sha256sum --check
           bash install_nvm.sh
         env:
-          NVM_VERSION: v0.39.5
-          NVMINSTALL_SHA256: 69da4f89f430cd5d6e591c2ccfa2e9e3ad55564ba60f651f00da85e04010c640
+          NVM_VERSION: v0.40.3
+          NVMINSTALL_SHA256: 2d8359a64a3cb07c02389ad88ceecd43f2fa469c06104f92f98df5b6f315275f
           BASE_URL: "https://raw.githubusercontent.com/nvm-sh/nvm"
 
       - name: Install prettier
         run: |
           source "${HOME}/.nvm/nvm.sh"
-          nvm install "${NODE_VERSION}"
+          nvm install --lts
           npm install -g prettier
           dirname "$(which prettier)" >> "${GITHUB_PATH}"
-        env:
-          NODE_VERSION: "20"
 
       - name: Install mdslw
         run: |
@@ -96,11 +94,11 @@ jobs:
           MDSLW_SHA256: 2ad8c1762e00f14a39585c639e0922511e1695dc5ac131f54d4ae39454ebccf3
           BASE_URL: "https://github.com/razziel89/mdslw/releases/download"
 
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: "go/go.mod"
           cache: true

@@ -29,24 +29,22 @@ check-dependencies:
 	command -v shellcheck &>/dev/null || (echo "ERROR, please install shellcheck" >&2; exit 1)
 	command -v shfmt &>/dev/null || (echo "ERROR, please install shfmt" >&2; exit 1)
 	command -v jq &>/dev/null || (echo "ERROR, please install jq" >&2; exit 1)
-	command -v kcov &>/dev/null || (echo "ERROR, please install kcov" >&2; exit 1)
 	command -v mdslw &>/dev/null || (echo "ERROR, please install mdslw" >&2; exit 1)
 
 SHELLCHECK_OPTS := --external-sources --enable=add-default-case,avoid-nullary-conditions,quote-safe-variables,require-variable-braces
 SHFMT_OPTS := --space-redirects --binary-next-line --indent 2
-MDSLW_OPTS := --upstream="prettier --parser=markdown"
 
 .PHONY: lint
 lint:
 	shellcheck $(SHELLCHECK_OPTS) ./bin/* ./lib/* ./tests/*
 	shfmt --diff $(SHFMT_OPTS) --language-dialect bash ./bin/* ./lib/*
 	shfmt --diff $(SHFMT_OPTS) --language-dialect bats ./tests/*
-	mdslw --mode=check $(MDSLW_OPTS) .
+	mdslw --mode=check --report=diff-meyers --diff-pager=cat .
 
 format:
 	shfmt --write --simplify $(SHFMT_OPTS) --language-dialect bash ./bin/* ./lib/*
 	shfmt --write --simplify $(SHFMT_OPTS) --language-dialect bats ./tests/*
-	mdslw --mode=format --upstream="prettier --parser=markdown" .
+	mdslw --mode=format .
 	shellcheck --format=diff $(SHELLCHECK_OPTS) bin/* lib/* tests/* | git apply --allow-empty
 
 # Run tests under all possible combinations of some shell options.
@@ -99,6 +97,7 @@ COVERAGE_FAILED_MESSAGE := \
 	https://github.com/SimonKagstrom/kcov/issues/234\#issuecomment-453929674
 
 coverage: test
+	command -v kcov &>/dev/null || (echo "ERROR, please install kcov" >&2; exit 1)
 	if [[ "$$(id -ru)" == 0 ]]; then \
 		echo >&2 "$(COVERAGE_FAILED_MESSAGE)"; exit 1; \
 	fi

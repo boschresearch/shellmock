@@ -53,10 +53,20 @@ env_var_check() {
   done
 }
 
-# Remove shellmock's mockbin directory from PATH. We do so by using the env var
-# set by the main shellmock code.
+# Remove shellmock's mockbin directory from PATH.
 rm_mock_path() {
-  export PATH="${__SHELLMOCK_ORGPATH}"
+  local paths=()
+  readarray -d : -t paths <<< "${PATH}"
+  local idx path
+  for idx in "${!paths[@]}"; do
+    path="${paths["${idx}"]}"
+    if [[ ${path} == "${__SHELLMOCK_MOCKBIN}" ]]; then
+      unset "paths[${idx}]"
+    fi
+  done
+  local new_path
+  IFS=: new_path="${paths[*]}"
+  export PATH="${new_path}"
 }
 
 # Make sure that we can find all the executables we need.
@@ -64,7 +74,7 @@ binary_deps_check() {
   local has_err=0
   local cmd
   for cmd in base32 cat mkdir; do
-    if ! command -v "${cmd}" &> /dev/null; then
+    if ! PATH="${__SHELLMOCK_ORGPATH}" command -v "${cmd}" &> /dev/null; then
       echo >&2 "Required executable ${cmd} not found."
       has_err=1
     fi
@@ -105,12 +115,12 @@ get_and_ensure_outdir() {
   # Ensure no two calls overwrite each other in a thread-safe way.
   local padded count=0
   padded=$(printf "%0${max_digits}d" "${count}")
-  mkdir -p "${__SHELLMOCK_OUTPUT}/${cmd_b32}"
+  PATH="${__SHELLMOCK_ORGPATH}" mkdir -p "${__SHELLMOCK_OUTPUT}/${cmd_b32}"
   local outdir="${__SHELLMOCK_OUTPUT}/${cmd_b32}/${padded}"
   while ! (
     # Increment the counter until we find one that has not been used before.
     "${_flock}" -n 9 || exit 1
-    mkdir "${outdir}" &> /dev/null
+    PATH="${__SHELLMOCK_ORGPATH}" mkdir "${outdir}" &> /dev/null
   ) 9> "${__SHELLMOCK_OUTPUT}/lockfile_${cmd_b32}_${count}"; do
     count=$((count + 1))
     padded=$(printf "%0${max_digits}d" "${count}")
@@ -151,7 +161,7 @@ output_args_and_stdin() {
   # in this case. Only output our stdin if we are not invoked interactively.
   # Otherwise, this would block until the user hit Ctrl+D to send EOF.
   if ! [[ -t 0 ]]; then
-    cat - > "${outdir}/stdin"
+    PATH="${__SHELLMOCK_ORGPATH}" cat - > "${outdir}/stdin"
   fi
 }
 
@@ -218,7 +228,9 @@ _match_spec() {
       errecho "Internal error, incorrect spec ${spec}"
       return 1
     fi
-  done < <(base32 --decode <<< "${full_spec}") && wait $! || return 1
+  done < <(
+    PATH="${__SHELLMOCK_ORGPATH}" base32 --decode <<< "${full_spec}"
+  ) && wait $! || return 1
 }
 
 # Check whether the given process is a bats process. A bats process is a bash
@@ -293,7 +305,7 @@ provide_output() {
   # environment variables.
   output_base32="MOCK_OUTPUT_BASE32_${cmd_spec}"
   if [[ -n ${!output_base32-} ]]; then
-    base32 --decode <<< "${!output_base32}"
+    PATH="${__SHELLMOCK_ORGPATH}" base32 --decode <<< "${!output_base32}"
   fi
 }
 
@@ -405,7 +417,7 @@ main() {
   # the command. This is almost always so.
   local cmd cmd_b32 args
   cmd="${0##*/}"
-  cmd_b32="$(base32 -w0 <<< "${cmd}")"
+  cmd_b32="$(PATH="${__SHELLMOCK_ORGPATH}" base32 -w0 <<< "${cmd}")"
   cmd_b32="${cmd_b32//=/_}"
   local outdir
   outdir="$(get_and_ensure_outdir "${cmd_b32}")"

@@ -19,12 +19,12 @@
 # shellmock <!-- omit in toc -->
 
 - [Installation](#installation)
-  - [Dependencies](#dependencies)
+    - [Dependencies](#dependencies)
 - [Documentation Overview](#documentation-overview)
 - [Feedback](#feedback)
 - [About](#about)
-  - [Maintainers](#maintainers)
-  - [License](#license)
+    - [Maintainers](#maintainers)
+    - [License](#license)
 
 This is the `shellmock` project, a mocking framework for shell scripts.
 It works well with the [bats-core] testing framework.
@@ -73,32 +73,33 @@ For optimal performance, install `flock`, which is contained within the
 ## Documentation Overview
 
 - Usage documentation:
-  - [Quickstart guide]:
-    Read this page if this is your first time using `shellmock` and you want to
-    get started.
-  - [How to]:
-    Read this page if you want to know how to go about creating your tests with
-    `shellmock` in general.
-  - [Detailed example]:
-    Read this page if you want to see how `shellmock` can be used to create
-    extensive tests of a script of medium complexity.
-  - [Command reference]:
-    Read this page if you want to know about all of `shellmock`'s features or
-    have questions about a specific command.
-  - [shellmock's own tests][shellmock-tests]:
-    Read this code if you want see how `shellmock` itself is being tested using
-    [bats-core].
-    Those tests also showcase `shellmock`'s features.
-    This is a non-exhaustive list of examples you can find in the tests:
-    - Mock an executable
-    - Mock a function
-    - Mock with non-zero exit code
-    - Match positional arguments, both with fixed and flexible positions
-    - Create a mock that is writing a fixed string to stdout
-    - Fail a test by killing the parent process when there is an unexpected call
+    - [Quickstart guide]:
+      Read this page if this is your first time using `shellmock` and you want
+      to get started.
+    - [How to]:
+      Read this page if you want to know how to go about creating your tests
+      with `shellmock` in general.
+    - [Detailed example]:
+      Read this page if you want to see how `shellmock` can be used to create
+      extensive tests of a script of medium complexity.
+    - [Command reference]:
+      Read this page if you want to know about all of `shellmock`'s features or
+      have questions about a specific command.
+    - [shellmock's own tests][shellmock-tests]:
+      Read this code if you want see how `shellmock` itself is being tested
+      using [bats-core].
+      Those tests also showcase `shellmock`'s features.
+      This is a non-exhaustive list of examples you can find in the tests:
+        - Mock an executable
+        - Mock a function
+        - Mock with non-zero exit code
+        - Match positional arguments, both with fixed and flexible positions
+        - Create a mock that is writing a fixed string to stdout
+        - Fail a test by killing the parent process when there is an unexpected
+          call
 - Technical documentation:
-  - [Building shellmock]:
-    Read this page if you want to know how to generate the release artefacts.
+    - [Building shellmock]:
+      Read this page if you want to know how to generate the release artefacts.
 
 ## Feedback
 
