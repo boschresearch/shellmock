@@ -33,6 +33,12 @@ _cat() {
 }
 
 deployable() {
+  local version=$1
+  local _major _minor _patch _label version_tmp
+  version_tmp=${version%%[+-]*}
+  local _label="${version#"${version_tmp-}"}"
+  IFS="." read -r _major _minor _patch _ <<< "${version_tmp}"
+
   # Output header including the licence file.
   echo '#!/bin/bash'
   (
@@ -48,6 +54,8 @@ deployable() {
 # https://github.com/boschresearch/shellmock
 
 EOF
+  # Write version to deployable.
+  printf "# This file constitutes shellmock in version %s.\n\n" "${version@Q}"
   # Output all bats helper files containing function definitions.
   for bats_file in lib/*.bash; do
     printf -- "\n# FILE: %s\n" "${bats_file}"
@@ -102,6 +110,8 @@ ENDOFFILE
 # Internal Go code used to check used commands in shell code.
 __shellmock_internal_init_command_search() {
   local path=$1
+
+  if [[ ! -f "${path}/go.mod" ]]; then
 EOF
 
   echo "PATH=\"\${__SHELLMOCK_ORGPATH}\" cat > \"\${path}/go.mod\"  << 'ENDOFFILE'"
@@ -109,6 +119,9 @@ EOF
 
   _cat << 'EOF'
 ENDOFFILE
+  fi
+
+  if [[ ! -f "${path}/main.go" ]]; then
 EOF
 
   echo "PATH=\"\${__SHELLMOCK_ORGPATH}\" cat > \"\${path}/main.go\"  << 'ENDOFFILE'"
@@ -116,6 +129,17 @@ EOF
 
   _cat << 'EOF'
 ENDOFFILE
+  fi
+}
+EOF
+
+  _cat << EOF
+__shellmock__version() {
+  SHELLMOCK_MAJOR_VERSION='${_major}'
+  SHELLMOCK_MINOR_VERSION='${_minor}'
+  SHELLMOCK_PATCH_VERSION='${_patch}'
+  SHELLMOCK_LABEL_VERSION='${_label}'
+  echo '${version}'
 }
 
 # Run initialisation steps.
@@ -123,9 +147,31 @@ __shellmock_internal_init
 EOF
 }
 
+_version() {
+  local git_call=(git describe --tags --abbrev)
+  if [[ -n ${SHELLMOCK_FORCE_EXACT_TAG_RELEASE-} ]]; then
+    git_call+=(--exact)
+  else
+    git_call+=(--always)
+  fi
+  local version
+  version=$("${git_call[@]}")
+  local reduced=${version//[[:alnum:]]/}
+  reduced=${reduced//[-.]/}
+  if [[ -n ${reduced} ]]; then
+    echo >&2 "Version ${version@Q} must only contain alphanumeric " \
+      "characters and the characters -. but it also contains ${reduced@Q}."
+    return 1
+  fi
+  echo "${version}"
+}
+
 main() {
+  set -euo pipefail
+  shopt -s inherit_errexit
   cd "${__SCRIPT_DIR}" || exit 1
-  deployable > shellmock.bash
+  local version && version=$(_version)
+  deployable "${version}" > shellmock.bash
 }
 
 main

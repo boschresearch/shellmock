@@ -118,6 +118,8 @@ shellmock new git
 This will create a mock executable for `git`.
 That mock executable will be used instead of the one installed on the system
 from that point forward, assuming no code changes `PATH`.
+Note that commands that are called via their absolute paths cannot be mocked.
+Furthermore, command names must not contain slashes.
 
 ### config
 
@@ -283,6 +285,7 @@ That letter will automatically be replaced by the value used for the previous
 argspec increased by 1.
 If the first argspec uses the `i` placeholder, it will be replaced by `1`.
 Numeric and incremental position indicators can be mixed.
+Note that the position indicator `i` cannot directly follow `any`.
 
 **Example**:
 Incremental argspec
@@ -481,11 +484,12 @@ While forwarding, it might be desirable to modify some arguments.
 You can do so by providing the name of a function that may modify the arguments
 that will be forwarded.
 That function receives all the arguments that the mock has been called with.
-It is expected to pass all arguments that shall be forwarded via the function
-`update_args`, either individually or in bulk.
+For this function, it is expected to pass all arguments that shall be forwarded
+via the special function `update_args`, either individually or in bulk.
 Note that the first argument received is the name of the executable to forward
 to.
 That means it is possible to forward to a different executable.
+Note that the function `update_args` is available only when forwarding calls.
 
 **Example**:
 
@@ -666,8 +670,11 @@ be known, which is not possible without executing the script.
 
 To support examples like the one above, Shellmock allows for specifying commands
 that are used indirectly by adding specific directives as comments.
-Lines containing directives generally look like
-`# shellmock: uses-command=cmd1,cmd2` and may be followed by a comment.
+Lines containing the relevant directive look like
+`# shellmock: uses-command=cmd1,cmd2` and may be followed (but not preceded) by
+a comment starting with `#`.
+While the exact line in the file does not matter, it is common for those
+directives to immediately precede the line they refer to.
 The above example can thus be updated to report all used executables.
 
 **Example**:
@@ -1017,6 +1024,25 @@ else
   echo "Otherwise."
 fi
 ```
+
+### version
+
+<!-- shellmock-helptext-start -->
+
+Syntax:
+`shellmock version`
+
+The `version` command outputs the version of `shellmock` being used.
+
+<!-- shellmock-helptext-end -->
+
+The command also populates the 4 following shell variables with the respective
+version elements according to semantic versioning:
+
+1. `SHELLMOCK_MAJOR_VERSION`
+1. `SHELLMOCK_MINOR_VERSION`
+1. `SHELLMOCK_PATCH_VERSION`
+1. `SHELLMOCK_LABEL_VERSION`
 
 [bash-ansi-escape]: https://www.gnu.org/software/bash/manual/html_node/ANSI_002dC-Quoting.html#ANSI_002dC-Quoting
 [golang]: https://go.dev/doc/install

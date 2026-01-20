@@ -28,6 +28,10 @@ __shellmock__new() {
 
   local cmd="$1"
 
+  if [[ ${cmd} == *"/"* ]]; then
+    echo >&2 "Command to mock must not contain slashes but received ${cmd@Q}."
+  fi
+
   if [[ $(type -t "${cmd}") == function ]]; then
     # We are mocking a function, unset it or it will take precedence over our
     # injected executable. However, store the original function so that we could

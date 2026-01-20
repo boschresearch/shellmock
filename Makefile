@@ -39,7 +39,7 @@ lint:
 	shellcheck $(SHELLCHECK_OPTS) ./bin/* ./lib/* ./tests/*
 	shfmt --diff $(SHFMT_OPTS) --language-dialect bash ./bin/* ./lib/*
 	shfmt --diff $(SHFMT_OPTS) --language-dialect bats ./tests/*
-	mdslw --mode=check --report=diff-meyers --diff-pager=cat .
+	mdslw --mode=check --report=diff-myers --diff-pager=cat .
 
 format:
 	shfmt --write --simplify $(SHFMT_OPTS) --language-dialect bash ./bin/* ./lib/*

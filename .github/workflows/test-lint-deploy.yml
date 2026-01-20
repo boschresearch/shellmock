@@ -90,8 +90,8 @@ jobs:
           chmod +x mdslw
           sudo mv mdslw /usr/local/bin
         env:
-          MDSLW_VERSION: 0.15.1
-          MDSLW_SHA256: 2ad8c1762e00f14a39585c639e0922511e1695dc5ac131f54d4ae39454ebccf3
+          MDSLW_VERSION: 0.16.0
+          MDSLW_SHA256: efd240f92a0aa2c93c7121b98158fa045b265bcd6756d65592a221f295fce110
           BASE_URL: "https://github.com/razziel89/mdslw/releases/download"
 
       - uses: actions/checkout@v4
@@ -115,6 +115,12 @@ jobs:
       - name: Test Supported Bash Versions
         if: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/') }}
         run: make test-bash-versions
+
+      - name: Build Package For Tagged Release
+        if: ${{ startsWith(github.ref, 'refs/tags/') }}
+        run: make build
+        env:
+          SHELLMOCK_FORCE_EXACT_TAG_RELEASE: 1
 
       - name: Publish package on GH (only tags)
         if: ${{ startsWith(github.ref, 'refs/tags/') }}

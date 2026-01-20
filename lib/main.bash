@@ -25,7 +25,7 @@ shellmock() {
   # Ensure that only those shell options are set that shellmock needs.
   local - # Restrict all changes to shell options to this function.
   # Options available via "set". Options available via "shopt" cannot easily be
-  # scoped to a function without using a RETURN trap, but we are already uisng
+  # scoped to a function without using a RETURN trap, but we are already using
   # one for another purpose.
   local opt opts=() flags=()
   IFS=: read -r -a opts <<< "${SHELLOPTS}"

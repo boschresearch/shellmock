@@ -22,9 +22,17 @@
 __shellmock_mktemp() {
   local has_bats=$1
   local what=$2
-  local dir
-  local base="${BATS_TEST_TMPDIR-${TMPDIR-/tmp}}/shellmock"
-  local template="${what// /_}.XXXXXXXXXX"
+  local session_wide=${3-0}
+
+  local base tmp_base="${TMPDIR-/tmp}"
+  if [[ ${session_wide} == 0 ]]; then
+    base="${BATS_TEST_TMPDIR-${tmp_base}}"
+  else
+    base="${BATS_SUITE_TMPDIR-${tmp_base}}"
+  fi
+  base="${base}/shellmock_tmp_${__SHELLMOCK_RANDOM_RUN_NUMBER-0}"
+
+  local dir template="${what// /_}.XXXXXXXXXX"
   PATH="${__SHELLMOCK_ORGPATH}" mkdir -p "${base}"
   dir=$(PATH="${__SHELLMOCK_ORGPATH}" mktemp -d -p "${base}" "${template}")
   if [[ ${has_bats} == 0 ]]; then
@@ -53,9 +61,11 @@ __shellmock_internal_init() {
     echo >&2 "Running outside of bats, temporary directories will be kept."
   fi
 
-  declare -gx __SHELLMOCK_ORGPATH
+  # Make sure each initialisation of shellmock has a separate random number
+  # assigned.
+  declare -gx __SHELLMOCK_RANDOM_RUN_NUMBER="${RANDOM}"
   # Remember the original value of "${PATH}" when shellmock was loaded.
-  __SHELLMOCK_ORGPATH="${PATH}"
+  declare -gx __SHELLMOCK_ORGPATH="${PATH}"
 
   local cmd has_err=0
   for cmd in base32 cat chmod mkdir mktemp rm; do
@@ -87,9 +97,20 @@ __shellmock_internal_init() {
     __shellmock_mktemp "${has_bats}" "call records"
   )"
 
+  # If flock is not available, we store the binary of the commands command in a
+  # per-test temporary directory. That will increase the time it takes to
+  # execute the test but that's the only way to avoid race conditions without
+  # flock. If flock is available, we store the compiled binary once per session.
+  local session_wide=1
+  if
+    ! command -v flock &> /dev/null \
+      || [[ ${__SHELLMOCK_TESTING_WO_FLOCK-0} == 1 ]]
+  then
+    session_wide=0
+  fi
   declare -gx __SHELLMOCK_GO_MOD
   __SHELLMOCK_GO_MOD="$(
-    __shellmock_mktemp "${has_bats}" "go code"
+    __shellmock_mktemp "${has_bats}" "go code" "${session_wide}"
   )"
 
   export PATH="${__SHELLMOCK_MOCKBIN}:${PATH}"

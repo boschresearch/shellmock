@@ -206,3 +206,23 @@ setup() {
   run ! shellmock is-mock some_non_existent_exe
   [[ -z ${output} ]]
 }
+
+@test "refusal to mock command with slash in name" {
+  run ! shellmock new co/man/d
+  [[ ${output} == *"Command to mock must not contain slashes but received 'co/man/d'."* ]]
+}
+
+# shellcheck disable=SC2153
+@test "version command outputs version and populates variables" {
+  version=$(shellmock version)
+  [[ -n ${version} ]]
+  shellmock version
+  # Ensure that the variables have been set. Some of them may be empty, which is
+  # why we use `set -u` to cause errors if they are not set.
+  set -u
+  : "${SHELLMOCK_MAJOR_VERSION}"
+  : "${SHELLMOCK_MINOR_VERSION}"
+  : "${SHELLMOCK_PATCH_VERSION}"
+  : "${SHELLMOCK_LABEL_VERSION}"
+  [[ -n ${SHELLMOCK_MAJOR_VERSION-} ]]
+}

@@ -54,13 +54,26 @@ __shellmock__commands() {
   local code
   code="$(PATH="${__SHELLMOCK_ORGPATH}" cat -)"
 
+  # shellmock: uses-command=flock
+  local _flock=flock
+  if
+    ! command -v flock &> /dev/null \
+      || [[ ${__SHELLMOCK_TESTING_WO_FLOCK-0} == 1 ]]
+  then
+    _flock=true
+  fi
+
   # Build the binary used to analyse the shell code.
   local bin="${__SHELLMOCK_GO_MOD}/main"
   if ! [[ -x ${bin} ]]; then
-    __shellmock_internal_init_command_search "${__SHELLMOCK_GO_MOD}"
-    (cd "${__SHELLMOCK_GO_MOD}" \
-      && PATH="${__SHELLMOCK_ORGPATH}" go get \
-      && PATH="${__SHELLMOCK_ORGPATH}" go build) 1>&2
+    (
+      "${_flock}" 9 && if ! [[ -x ${bin} ]]; then
+        __shellmock_internal_init_command_search "${__SHELLMOCK_GO_MOD}" \
+          && cd "${__SHELLMOCK_GO_MOD}" \
+          && PATH="${__SHELLMOCK_ORGPATH}" go get \
+          && PATH="${__SHELLMOCK_ORGPATH}" go build
+      fi
+    ) 1>&2 9> "${__SHELLMOCK_GO_MOD}/.lockfile"
   fi
 
   declare -A builtins

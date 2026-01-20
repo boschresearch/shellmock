@@ -20,4 +20,4 @@
 
 Simply run the script `./generate_deployable.sh` at the top level of this
 repository to generate `shellmock.bash`.
-It uses only `bash` to generate it.
+It uses only `bash` and `git` to generate it.
