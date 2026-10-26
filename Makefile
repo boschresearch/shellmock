@@ -47,11 +47,15 @@ format:
 	mdslw --mode=format .
 	shellcheck --format=diff $(SHELLCHECK_OPTS) bin/* lib/* tests/* | git apply --allow-empty
 
+ifdef TEST_FILTER
+BATS_FILTER := --filter "$(TEST_FILTER)"
+endif
+
 # Run tests under all possible combinations of some shell options.
 .PHONY: test
 test: build
 	echo >&2 "Running tests for version $${BASH_VERSION}."
-	bats --print-output-on-failure ./tests/*.bats
+	bats --print-output-on-failure ./tests/*.bats $(BATS_FILTER)
 
 DOWNLOAD_URL_PREFIX := https://mirror.kumi.systems/gnu/bash/
 C_FLAGS += -std=gnu17 -Wno-implicit-function-declaration -Wno-implicit-int

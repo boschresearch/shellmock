@@ -196,9 +196,12 @@ output_args_and_stdin() {
   # If stdin is a terminal, we are called interactively. Don't output our stdin
   # in this case. Only output our stdin if we are not invoked interactively.
   # Otherwise, this would block until the user hit Ctrl+D to send EOF.
-  if ! [[ -t 0 ]]; then
+  if [[ -t 0 ]]; then
+    : > "${outdir}/stdin"
+  else
     PATH="${__SHELLMOCK_ORGPATH}" cat - > "${outdir}/stdin"
   fi
+  echo "${outdir}/stdin"
 }
 
 _match_arg() {
@@ -293,13 +296,11 @@ _match_spec() {
 
   local spec
   while IFS= read -d $'\0' -r spec; do
-    local id val kind
-    val="${spec#*:}"
+    local id val="${spec#*":"}" kind=${spec%%":"*} env cmp="" empty="NULL"
 
     # Negative any match.
     if [[ ${spec} =~ ^!([^-:][^-:]*-any|any): ]]; then
-      spec=${spec#"!"}
-      kind=${spec%%":"*}
+      kind=${kind#"!"}
       kind=${kind%"any"}
       kind=${kind%"-"}
       if _find_arg "${kind}" "${val}" "$@"; then
@@ -307,16 +308,37 @@ _match_spec() {
       fi
     # Positive any match.
     elif [[ ${spec} =~ ^([^-:][^-:]*-any|any): ]]; then
-      kind=${spec%%":"*}
       kind=${kind%"any"}
       kind=${kind%"-"}
       if ! _find_arg "${kind}" "${val}" "$@"; then
         return 1
       fi
+    # Negative env match.
+    elif [[ ${spec} =~ ^!([^-:][^-:]*-env=[A-Za-z_][A-Za-z0-9_]*|env=[A-Za-z_][A-Za-z0-9_]*): ]]; then
+      env=${kind##*"env="}
+      kind=${kind#"!"}
+      kind=${kind%"env="*}
+      kind=${kind%"-"}
+      if cmp="${!env-}" 2> /dev/null; then
+        empty="${!env-NULL}"
+      fi
+      if _match_arg "${kind}" "${cmp}" "${empty}" "${val}"; then
+        return 1
+      fi
+    # Positive env match.
+    elif [[ ${spec} =~ ^([^-:][^-:]*-env=[A-Za-z_][A-Za-z0-9_]*|env=[A-Za-z_][A-Za-z0-9_]*): ]]; then
+      env=${kind##*"env="}
+      kind=${kind%"env="*}
+      kind=${kind%"-"}
+      if cmp="${!env-}" 2> /dev/null; then
+        empty="${!env-NULL}"
+      fi
+      if ! _match_arg "${kind}" "${cmp}" "${empty}" "${val}"; then
+        return 1
+      fi
     # Negative positional match.
     elif [[ ${spec} =~ ^!([^-:][^-:]*-[0-9][0-9]*|[0-9][0-9]*): ]]; then
-      spec=${spec#"!"}
-      kind=${spec%%":"*}
+      kind=${kind#"!"}
       id=${kind#*"-"}
       kind=${kind%%"${id}"}
       kind=${kind%%"-"}
@@ -325,7 +347,6 @@ _match_spec() {
       fi
     # Positive positional match.
     elif [[ ${spec} =~ ^([^-:][^-:]*-[0-9][0-9]*|[0-9][0-9]*): ]]; then
-      kind=${spec%%":"*}
       id=${kind#*"-"}
       kind=${kind%%"${id}"}
       kind=${kind%%"-"}
@@ -437,7 +458,8 @@ provide_output() {
 
 run_hook() {
   local cmd_spec="$1"
-  shift
+  local stdin_path="$2"
+  shift 2
   local args=("$@")
   # If a hook function was specified, run it. It has to be exported for this to
   # work.
@@ -448,7 +470,7 @@ run_hook() {
       && [[ $(type -t "${!hook_env_var-}") == function ]]
   then
     # Run hook in sub-shell to reduce its influence on the mock.
-    if ! ("${!hook_env_var}" "${args[@]}"); then
+    if ! ("${!hook_env_var}" "${args[@]}" < "${stdin_path}"); then
       # Not using errecho because we want this to always show up in the test's
       # output. Anything output via errecho will end up in a file that is only
       # looked at when asserting expectations.
@@ -483,30 +505,39 @@ should_forward() {
 }
 
 # Forward the arguments to the first executable in PATH that is not controlled
-# by shellmock, that is the first executable not in __SHELLMOCK_MOCKBIN. We can
-# also forward to functions that we stored, but those functions cannot access
-# shell variables of the surrounding shell. If requested, we will first call an
-# exported shell function that may modify the arguments that we forward.
+# by shellmock, that is the first executable not in __SHELLMOCK_MOCKBIN. We
+# can also forward to functions that we stored, but those functions cannot
+# access shell variables of the surrounding shell. If requested, we will first
+# call an exported shell function that may modify the arguments or stdin that
+# we forward.
 forward() {
   local cmd_spec=$1
   local cmd=$2
-  shift 2
+  local stdin_path=$3
+  shift 3
   local args=("$@")
 
-  # Update arguments if requested.
+  # Update arguments or stdin if requested.
   local rc_env_var
   rc_env_var="MOCK_RC_${cmd_spec}"
   if [[ ${!rc_env_var} == "forward:"* ]]; then
     local forward_fn="${!rc_env_var##forward:}"
-    local updated_args=()
+    local updated_args=() updated_stdin_path="${stdin_path}_updated"
+    : > "${updated_stdin_path}"
     if ! {
       mapfile -t -d $'\0' updated_args < <(
-        # The function will be invoked indirectly by the forward function.
+        # These functions will be invoked indirectly by the forward function.
         # shellcheck disable=SC2317,SC2329
         update_args() {
           local arg && for arg in "$@"; do printf -- '%s\0' "${arg}"; done
         }
-        "${forward_fn}" "${cmd}" "${args[@]}"
+        # shellcheck disable=SC2317,SC2329
+        update_stdin() {
+          if ! [[ -t 0 ]]; then
+            PATH="${__SHELLMOCK_ORGPATH}" cat - >> "${updated_stdin_path}"
+          fi
+        }
+        "${forward_fn}" "${cmd}" "${args[@]}" < "${stdin_path}"
       ) && wait $!
     }; then
       echo >&2 "SHELLMOCK: failed to call function ${forward_fn@Q} that" \
@@ -516,6 +547,7 @@ forward() {
     fi
     cmd=${updated_args[0]}
     args=("${updated_args[@]:1}")
+    stdin_path=${updated_stdin_path}
   fi
 
   local exe
@@ -530,7 +562,7 @@ forward() {
     return 1
   fi
   echo >&2 "SHELLMOCK: forwarding call: ${exe@Q} ${*@Q}"
-  exec "${exe}" "${args[@]}"
+  exec "${exe}" "${args[@]}" < "${stdin_path}"
 }
 
 main() {
@@ -549,15 +581,16 @@ main() {
   outdir="$(get_and_ensure_outdir "${cmd_b32}")"
   declare -g STDERR="${outdir}/stderr"
   # Stdin is consumed in the function output_args_and_stdin.
-  output_args_and_stdin "${outdir}" "$@"
+  local stdin_path
+  stdin_path=$(output_args_and_stdin "${outdir}" "$@")
   # Find the matching argspec defined by the user. If found, write the
   # associated information to stdout and exit with the associated exit code. If
   # it cannot be found, either exit with an error or kill the parent process.
   local cmd_spec
   cmd_spec="$(find_matching_argspec "${outdir}" "${cmd}" "${cmd_b32}" "$@")"
-  run_hook "${cmd_spec}" "$@"
+  run_hook "${cmd_spec}" "${stdin_path}" "$@"
   if should_forward "${cmd_spec}"; then
-    forward "${cmd_spec}" "${cmd}" "$@"
+    forward "${cmd_spec}" "${cmd}" "${stdin_path}" "$@"
   else
     provide_output "${cmd_spec}"
     return_with_code "${cmd_spec}"

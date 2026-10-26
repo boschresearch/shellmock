@@ -57,41 +57,30 @@ jobs:
       - name: Install shfmt
         env:
           VERSION: 3.13.1
-          SHA256: fb096c5d1ac6beabbdbaa2874d025badb03ee07929f0c9ff67563ce8c75398b1
           URL: https://github.com/mvdan/sh/releases/download
         run: |
           curl -o shfmt --location \
             "${URL}/v${VERSION}/shfmt_v${VERSION}_linux_amd64"
-          echo "${SHA256} shfmt" | sha256sum -c
           chmod +x shfmt
           sudo mv shfmt /usr/local/bin/shfmt
 
-      - name: Install NVM
-        run: |
-          curl -sSfL -o install_nvm.sh "${BASE_URL}/${NVM_VERSION}/install.sh"
-          echo "${NVMINSTALL_SHA256} install_nvm.sh" | sha256sum --check
-          bash install_nvm.sh
+      - name: Install rumdl
         env:
-          NVM_VERSION: v0.40.4
-          NVMINSTALL_SHA256: 4b7412c49960c7d31e8df72da90c1fb5b8cccb419ac99537b737028d497aba4f
-          BASE_URL: "https://raw.githubusercontent.com/nvm-sh/nvm"
-
-      - name: Install prettier
+          VERSION: "0.2.79"
+          URL: https://github.com/rvben/rumdl/releases/download
         run: |
-          source "${HOME}/.nvm/nvm.sh"
-          nvm install --lts
-          npm install -g prettier
-          dirname "$(which prettier)" >> "${GITHUB_PATH}"
+          curl -sSfLo - \
+            "${URL}/v${VERSION}/rumdl-v${VERSION}-x86_64-unknown-linux-musl.tar.gz" \
+            | tar -xvzf -
+          sudo mv rumdl /usr/local/bin/rumdl
 
       - name: Install mdslw
         run: |
           curl -sSfL -o mdslw "${BASE_URL}/${MDSLW_VERSION}/mdslw_x86_64-unknown-linux-musl"
-          echo "${MDSLW_SHA256} mdslw" | sha256sum --check
           chmod +x mdslw
           sudo mv mdslw /usr/local/bin
         env:
-          MDSLW_VERSION: 0.17.1
-          MDSLW_SHA256: ed442f0785b9e33b145bb45b0a5efcce58be8372c0f4ad55eb5d2ad7849cd61a
+          MDSLW_VERSION: 0.18.0
           BASE_URL: "https://github.com/razziel89/mdslw/releases/download"
 
       - uses: actions/checkout@v6

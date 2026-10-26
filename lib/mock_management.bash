@@ -118,7 +118,8 @@ __shellmock_assert_no_duplicate_argspecs() {
   for arg in "${args[@]}"; do
     idx=${arg%%:*}
     idx=${idx#*"-"}
-    if [[ ${idx} == any ]]; then
+    # Skip non-numerical entries.
+    if [[ -n ${idx//[0-9]*/} ]]; then
       continue
     fi
     count=${arg_idx_count["${idx}"]-0}
@@ -192,43 +193,57 @@ __shellmock__config() {
     "i"
     "[0-9][0-9]*"
     "any"
+    "env=[A-Za-z_][A-Za-z0-9_]*"
     "value-[0-9][0-9]*"
     "value-any"
     "value-i"
+    "value-env=[A-Za-z_][A-Za-z0-9_]*"
     "substring-[0-9][0-9]*"
     "substring-any"
     "substring-i"
+    "substring-env=[A-Za-z_][A-Za-z0-9_]*"
     "prefix-[0-9][0-9]*"
     "prefix-any"
     "prefix-i"
+    "prefix-env=[A-Za-z_][A-Za-z0-9_]*"
     "suffix-[0-9][0-9]*"
     "suffix-any"
     "suffix-i"
+    "suffix-env=[A-Za-z_][A-Za-z0-9_]*"
     "regex-[0-9][0-9]*"
     "regex-any"
     "regex-i"
+    "regex-env=[A-Za-z_][A-Za-z0-9_]*"
     "set-[0-9][0-9]*"
     "set-i"
+    "set-env=[A-Za-z_][A-Za-z0-9_]*"
     "!i"
     "![0-9][0-9]*"
     "!any"
+    "!env=[A-Za-z_][A-Za-z0-9_]*"
     "!value-[0-9][0-9]*"
     "!value-any"
     "!value-i"
+    "!value-env=[A-Za-z_][A-Za-z0-9_]*"
     "!substring-[0-9][0-9]*"
     "!substring-any"
     "!substring-i"
+    "!substring-env=[A-Za-z_][A-Za-z0-9_]*"
     "!prefix-[0-9][0-9]*"
     "!prefix-any"
     "!prefix-i"
+    "!prefix-env=[A-Za-z_][A-Za-z0-9_]*"
     "!suffix-[0-9][0-9]*"
     "!suffix-any"
     "!suffix-i"
+    "!suffix-env=[A-Za-z_][A-Za-z0-9_]*"
     "!regex-[0-9][0-9]*"
     "!regex-any"
     "!regex-i"
+    "!regex-env=[A-Za-z_][A-Za-z0-9_]*"
     "!set-[0-9][0-9]*"
     "!set-i"
+    "!set-env=[A-Za-z_][A-Za-z0-9_]*"
   )
   IFS="|"
   regex="^(${regex_parts[*]}):"
@@ -253,10 +268,8 @@ __shellmock__config() {
 
   # Check for "set" argspecs with values, which is not allowed.
   for arg in "${args[@]}"; do
-    if
-      [[ ${arg} == "set-"* && -n ${arg#*:} ]] \
-        || [[ ${arg} == "!set-"* && -n ${arg#*:} ]]
-    then
+    local val="${arg#*":"}" kind=${arg%%":"*}
+    if [[ -n ${val} ]] && [[ ${kind} == "set-"* || ${kind} == "!set-"* ]]; then
       echo >&2 "Argspec of type 'set' must not have a value after the colon."
       return 1
     fi

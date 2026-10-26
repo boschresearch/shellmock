@@ -93,7 +93,7 @@ What happens in details:
     1. There has been an unexpected call.
        That is, the mock has been called with arguments that have not been
        declared via a previous call to `shellmock config`.
-    1. An expected call is missing.
+    2. An expected call is missing.
        That is, the mock has not been called with at least one set of arguments
        that match a previous call to `shellmock config`.
 

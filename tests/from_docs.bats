@@ -114,3 +114,41 @@ script() {
   # Assert on the exit code. We expect a non-zero exit code.
   [[ ${status} != 0 ]]
 }
+
+@test "enforcing the number of arguments" {
+  shellmock new my_exe_noextra
+  shellmock config my_exe_noextra 0 set-4: !set-i:
+  shellmock new my_exe_extra
+  shellmock config my_exe_extra 0 set-4: !set-i:
+
+  run -0 my_exe_noextra one two three four
+  run ! my_exe_extra one two three four five
+
+  shellmock assert expectations my_exe_noextra
+  run ! shellmock assert only-expected-calls my_exe_extra
+  [[ ${output} == *"SHELLMOCK: unexpected call 'my_exe_extra"* ]]
+}
+
+@test "different ways of providing multi-line stdout" {
+  shellmock new my_exe
+  # This is not real multi-line output but a literal \n embedded in a string.
+  shellmock config my_exe 0 1:literal <<< 'first\nsecond\n'
+  shellmock config my_exe 0 1:newlines <<< "first
+second
+"
+  shellmock config my_exe 0 1:heredoc << EOF
+first
+second
+EOF
+  shellmock config my_exe 0 1:ansi <<< $'first\nsecond\n'
+
+  run -0 my_exe literal
+  [[ ${output} == 'first\nsecond\n' ]]
+  run -0 my_exe newlines
+  [[ ${output} == $'first\nsecond' ]]
+  run -0 my_exe heredoc
+  [[ ${output} == $'first\nsecond' ]]
+  run -0 my_exe ansi
+  [[ ${output} == $'first\nsecond' ]]
+  shellmock assert expectations my_exe
+}

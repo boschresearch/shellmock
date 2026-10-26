@@ -1,10 +1,79 @@
 case = "ignore"
 end-markers = "?!:."
-features = "format-block-quotes,collate-link-defs,outsource-inline-links"
+features = "collate-link-defs,outsource-inline-links,keep-colon-fences,never-break-html,never-break-code-spans"
 ignores = ""
 lang = "ac"
 max-width = 80
 suppressions = ""
-upstream-command = "prettier"
-upstream = "--parser=markdown --tab-width=4"
-upstream-separator = " "
+upstream-command = "rumdl"
+upstream-separator = "\n"
+
+# Formatter-only rumdl configuration. Do not add comments inside upstream:
+# every non-empty line there becomes one command-line argument.
+# MD003: normalize headings to ATX style.
+# MD004: normalize unordered-list markers.
+# MD005: normalize list indentation consistently at each level.
+# MD007: use four-space fixed indentation for nested unordered lists.
+# MD009: remove accidental trailing spaces while preserving hard breaks.
+# MD010: replace structural hard tabs with spaces.
+# MD012: collapse excessive consecutive blank lines.
+# MD018: insert missing spaces after ATX heading markers.
+# MD019: collapse multiple spaces after ATX heading markers.
+# MD020: insert missing spaces inside closed ATX headings.
+# MD021: collapse multiple spaces inside closed ATX headings.
+# MD022: add standard blank lines around headings.
+# MD027: normalize whitespace after blockquote markers.
+# MD029: normalize ordered-list numbering.
+# MD030: normalize spaces after list markers.
+# MD031: add blank lines around fenced code blocks.
+# MD032: add blank lines around lists.
+# MD035: normalize thematic-break style.
+# MD037: remove spaces inside emphasis markers.
+# MD038: remove spaces inside code spans.
+# MD039: remove spaces inside link text.
+# MD046: normalize indented and fenced code-block style.
+# MD047: ensure one trailing newline at end of file.
+# MD048: normalize code fences to backticks.
+# MD049: normalize emphasis markers.
+# MD050: normalize strong-emphasis markers.
+# MD055: normalize leading and trailing table pipes.
+# MD056: normalize table column counts.
+# MD058: add blank lines around tables.
+# MD060: align table columns for source readability.
+# MD062: remove whitespace from link destinations.
+# MD064: collapse multiple consecutive spaces.
+# MD065: add blank lines around thematic breaks.
+# MD069: remove duplicate list markers.
+# MD070: prevent nested code-fence collisions.
+# MD071: add a blank line after frontmatter.
+# MD075: fix orphaned table rows when unambiguous.
+# MD076: normalize spacing between list items.
+# MD084: remove unsafe invisible characters.
+# MD085: normalize paragraph continuation indentation.
+# MD088: normalize quotes and dashes.
+# MD089: normalize spacing between CJK and Latin text.
+upstream = """
+fmt
+--silent
+--no-config
+--no-cache
+--enable
+MD003,MD004,MD005,MD007,MD009,MD010,MD012,MD018,MD019,MD020,MD021,MD022,MD027,MD029,MD030,MD031,MD032,MD035,MD037,MD038,MD039,MD046,MD047,MD048,MD049,MD050,MD055,MD056,MD058,MD060,MD062,MD064,MD065,MD069,MD070,MD071,MD075,MD076,MD084,MD085,MD088,MD089
+--config=MD003.style="atx"
+--config=MD004.style="dash"
+--config=MD007.indent=4
+--config=MD007.style="fixed"
+--config=MD029.style="ordered"
+--config=MD030.ul-single=1
+--config=MD030.ol-single=1
+--config=MD030.ul-multi=1
+--config=MD030.ol-multi=1
+--config=MD046.style="fenced"
+--config=MD048.style="backtick"
+--config=MD049.style="underscore"
+--config=MD050.style="asterisk"
+--config=MD055.style="leading_and_trailing"
+--config=MD060.enabled=true
+--config=MD060.style="aligned"
+--config=MD060.max-width=0
+-"""

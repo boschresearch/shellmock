@@ -291,6 +291,7 @@ setup() {
 @test "disallow set argspec with value" {
   shellmock new my_exe
   run ! shellmock config my_exe 0 set-5:value
+  run ! shellmock config my_exe 0 set-env=ENV:value
 }
 
 @test "positional argument set" {
@@ -334,4 +335,45 @@ setup() {
       first second third fourth fifth sixth seventh eighth ninth \
       any bogus-any any-bogus bogus-any-bogus
   done
+}
+
+@test "matching by env vars" {
+  tmp_path="${BATS_TEST_TMPDIR}/tmp-path"
+  shellmock new my_exe
+  shellmock config my_exe 0 env=SOMEPATH:"${tmp_path}"
+
+  unset SOMEPATH
+  run ! my_exe
+  SOMEPATH="" run ! my_exe
+  SOMEPATH="${tmp_path}" run -0 my_exe
+}
+
+@test "convenience matches by env vars" {
+  shellmock new my_exe
+  shellmock config my_exe 0 \
+    prefix-env=PREFIX:beg \
+    substring-env=SUBSTRING:dd \
+    suffix-env=SUFFIX:nd \
+    set-env=SET: \
+    regex-env=NUMBERS:"[0-9]*" \
+    !prefix-env=NOT_PREFIX:beg \
+    !substring-env=NOT_SUBSTRING:dd \
+    !suffix-env=NOT_SUFFIX:nd \
+    !set-env=NOT_SET: \
+    !regex-env=NOT_NUMBERS:"[0-9]"
+
+  unset PREFIX SUBSTRING SUFFIX SET NUMBERS
+  unset NOT_PREFIX NOT_SUBSTRING NOT_SUFFIX NOT_SET NOT_NUMBERS
+
+  run ! my_exe
+  PREFIX=beginning \
+    SUBSTRING=middle \
+    SUFFIX=end \
+    SET="" \
+    NUMBERS=12345 \
+    NOT_PREFIX=ing \
+    NOT_SUBSTRING=bogus \
+    NOT_SUFFIX=nda \
+    NOT_NUMBERS=abcdef \
+    run -0 my_exe
 }

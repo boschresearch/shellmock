@@ -264,3 +264,33 @@ EOF
   shellmock assert expectations _forward_to_someone_else
   shellmock assert expectations _forward_to_me
 }
+
+@test "forwarding stdin to a hook" {
+  _hook_stdin() {
+    cat > "${BATS_TEST_TMPDIR}/hook_stdin"
+  }
+  shellmock new my_exe
+  shellmock config my_exe 0 hook:_hook_stdin
+
+  run -0 my_exe <<< "hook input"
+
+  [[ $(cat "${BATS_TEST_TMPDIR}/hook_stdin") == "hook input" ]]
+  shellmock assert expectations my_exe
+}
+
+@test "modifying stdin while forwarding" {
+  _my_exe() {
+    cat
+  }
+  _modify_stdin() {
+    update_args "$@"
+    update_stdin <<< "forwarded input"
+  }
+  shellmock new _my_exe
+  shellmock config _my_exe forward:_modify_stdin
+
+  run -0 --separate-stderr _my_exe <<< "original input"
+
+  [[ ${output} == "forwarded input" ]]
+  shellmock assert expectations _my_exe
+}

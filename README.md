@@ -105,8 +105,8 @@ For optimal performance, install `flock`, which is contained within the
 ## Feedback
 
 Like what we did?
-Great, we’d love to hear that.
-Don’t like it?
+Great, we'd love to hear that.
+Don't like it?
 Not so great!
 But we are eager to hear your feedback on how we could improve!
 

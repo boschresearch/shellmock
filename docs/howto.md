@@ -29,9 +29,9 @@ The process of creating `shellmock`-based tests described here can be divided
 into the following steps:
 
 1. Refactor the script.
-1. Devise test cases.
-1. Decide which executables are worth mocking.
-1. Write the tests.
+2. Devise test cases.
+3. Decide which executables are worth mocking.
+4. Write the tests.
 
 We recommend this approach because it can be rather difficult to know which
 executables to mock before having written the actual script.
@@ -217,7 +217,7 @@ Some obvious test cases come to mind:
 
 1. The script downloads the latest release if the user does not request a
    specific one.
-1. The script errors out if the user requests a release that does not exist.
+2. The script errors out if the user requests a release that does not exist.
 
 ## Deciding which executables are worth mocking.
 
@@ -363,8 +363,8 @@ RELEASE_DATA_FOR_TESTS='
 Running the tests again, `shellmock calls` reports an additional call to `curl`
 for the first test, which we also have to configure.
 Doing so, we arrive at our final test file.
-Note that we also removed the catch-all mocks as well as the calls to `shellmock
-calls`.
+Note that we also removed the catch-all mocks as well as the calls to
+`shellmock calls`.
 Instead, we asserted some expectations that we have.
 
 ```bash

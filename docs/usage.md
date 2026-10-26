@@ -224,7 +224,7 @@ fi
 
 #### argspec Definitions
 
-All argspecs follow the same format of
+Argspecs follow the format of
 `<match-type>-<position-indicator>:<expected-value>`.
 An argspec matches only if the actual value at the specified position matches
 the expected value via the match type.
@@ -237,6 +237,8 @@ the expected value via the match type.
   mock starts with either the string `http` or the string `https`.
 - The argspec `substring-3:git` matches if the third positional argument
   contains the literal string `git` anywhere.
+- The argspec `suffix-env=PATH:/some/path` matches if the `PATH` environment
+  variable ends on the literal string `/some/path`.
 
 Normal shell-quoting rules apply to argspecs, especially to the `expected-value`
 part.
@@ -250,11 +252,14 @@ Providing a value containing white space should look like this:
 A position indicator declares which positional argument shall be matched.
 Position indicators can be positive integers or the literal strings `any` or
 `i`.
+A position indicator can also look like `env=<env-var>`.
 
 - A positive integer position indicator specifies which argument that the mock
   received shall be matched.
   Following how shell scripts specify argument positions, the first argument has
   the index 1.
+- The position indicator `env=` specifies that the match concerns an environment
+  variable whose name is given following the equals sign.
 - The position indicator `any` specifies that the match is successful if at
   least one argument matches.
 - The position indicator `i`, which is short for "increment", specifies that the
@@ -412,16 +417,24 @@ shellmock config git 0 1:push
 shellmock config git forward
 ```
 
-While forwarding, it might be desirable to modify some arguments.
+While forwarding, it might be desirable to modify some arguments or the stdin
+received by the forwarding target.
 You can do so by providing the name of a function that may modify the arguments
-that will be forwarded.
+and stdin that will be forwarded.
 That function receives all the arguments that the mock has been called with.
+It will also receive the stdin that the mock has been called with as its own
+stdin.
 For this function, it is expected to pass all arguments that shall be forwarded
 via the special function `update_args`, either individually or in bulk.
 Note that the first argument received is the name of the executable to forward
 to.
 That means it is possible to forward to a different executable.
-Note that the function `update_args` is available only when forwarding calls.
+The function is also expected to pass the stdin that shall be forwarded via the
+special function `update_stdin`.
+Anything this function receives as its own stdin will be forwarded as stdin to
+the forwarding target.
+Note that the functions `update_args` and `update_stdin` are available only when
+forwarding calls.
 
 **Example**:
 
@@ -439,12 +452,15 @@ remove_silent_flag() {
       update_args "${arg}"
     fi
   done
+  # Lower-case stdin.
+  tr '[:upper:]' '[:lower:]' | update_stdin
 }
-# Then, we use it to modify the arguments that will be forwarded.
+# Then, we use it to modify the arguments and stdin that will be forwarded.
 shellmock config curl forward:remove_silent_flag any:GET
 # This GET request will be forwarded but we will not forward the --silent flag.
 curl -X GET --silent --output shellmock.bash \
-  https://github.com/boschresearch/shellmock/releases/latest/download/shellmock.bash
+  https://github.com/boschresearch/shellmock/releases/latest/download/shellmock.bash \
+  <<< "THIS WILL BE MADE LOWER CASE"
 ```
 
 **Example**:
@@ -810,6 +826,7 @@ The output for this example contains all details about all of the calls.
 The output would be:
 
 <!-- prettier-ignore-start -->
+
 ```
 name:       git
 id:         1
@@ -835,12 +852,14 @@ args:       branch -d new-branch
 stdin:
 suggestion: shellmock config git 0 1:branch 2:-d 3:new-branch
 ```
+
 <!-- prettier-ignore-end -->
 
 If you were to replace `--plain` by `--json` in the call to `shellmock calls`,
 the output would be as follows instead:
 
 <!-- prettier-ignore-start -->
+
 ```json
 [
   {
@@ -887,6 +906,7 @@ the output would be as follows instead:
   }
 ]
 ```
+
 <!-- prettier-ignore-end -->
 
 If you were to replace `--plain` by `--simple` instead, the output would be as
@@ -972,9 +992,9 @@ The command also populates the 4 following shell variables with the respective
 version elements according to semantic versioning:
 
 1. `SHELLMOCK_MAJOR_VERSION`
-1. `SHELLMOCK_MINOR_VERSION`
-1. `SHELLMOCK_PATCH_VERSION`
-1. `SHELLMOCK_LABEL_VERSION`
+2. `SHELLMOCK_MINOR_VERSION`
+3. `SHELLMOCK_PATCH_VERSION`
+4. `SHELLMOCK_LABEL_VERSION`
 
 [bash-ansi-escape]: https://www.gnu.org/software/bash/manual/html_node/ANSI_002dC-Quoting.html#ANSI_002dC-Quoting
 [golang]: https://go.dev/doc/install
